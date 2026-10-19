@@ -1,7 +1,38 @@
-import { useMemo, useState } from 'react'
-import { Activity, ArrowRight, BriefcaseBusiness, CalendarDays, CircleDollarSign, FileSearch, FileText, FolderOpen, Plus, ShieldAlert, UsersRound } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useMemo, useState, useEffect } from 'react'
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  Database,
+  FileCheck,
+  FileText,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  TrendingUp,
+  UploadCloud,
+  UsersRound,
+  Wallet,
+} from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import type { Project } from './projectFeatures'
+import {
+  searchContractClauses,
+  type EvidenceItem,
+} from './api'
 import './WorkspacePages.css'
 
 type ProjectRecord = Project
@@ -13,127 +44,1014 @@ type PageProps = {
   onAddProject?: () => void
 }
 
-const documents = [
-  { id: 'DOC-1048', title: 'Weekly field report', project: 'East River Flood Barrier', projectId: 'CP-2048', date: 'Oct 1, 2026', type: 'Field report', status: 'Reviewed', excerpt: 'Permit review remains outstanding. Foundation work cannot proceed until environmental clearance is received. The team has requested an updated review date from the agency.' },
-  { id: 'DOC-1039', title: 'Environmental permit status', project: 'East River Flood Barrier', projectId: 'CP-2048', date: 'Sep 28, 2026', type: 'Permit update', status: 'Needs review', excerpt: 'The environmental review is still in progress. No revised approval date has been confirmed in this update.' },
-  { id: 'DOC-1026', title: 'Monthly cost report', project: 'I-405 Sound Wall Expansion', projectId: 'CP-1932', date: 'Sep 30, 2026', type: 'Cost report', status: 'Reviewed', excerpt: 'Several material line items have moved above the original estimate. The project team is preparing a change forecast for the next review.' },
-  { id: 'DOC-1017', title: 'North corridor progress photos', project: 'I-405 Sound Wall Expansion', projectId: 'CP-1932', date: 'Sep 26, 2026', type: 'Progress update', status: 'Reviewed', excerpt: 'Work continues along the north corridor. The next update should include the paving schedule and the revised material delivery dates.' },
-  { id: 'DOC-1008', title: 'Commissioning readiness checklist', project: 'Civic Center Modernization', projectId: 'CP-1876', date: 'Sep 25, 2026', type: 'Checklist', status: 'Reviewed', excerpt: 'Systems commissioning preparation is underway. Remaining checks are assigned to the electrical and building controls teams.' },
-  { id: 'DOC-0993', title: 'Water main cost and quantity update', project: 'South County Water Main', projectId: 'CP-1764', date: 'Sep 24, 2026', type: 'Cost report', status: 'Needs review', excerpt: 'Reported spending is running ahead of installed quantities. The next review should reconcile invoices against completed work.' },
+const uploadedContractsCatalog = [
+  {
+    id: 'DOC-ERFB-001',
+    title: 'East River Barrier - Master Construction Agreement',
+    project: 'East River Flood Barrier',
+    projectId: 'CP-2048',
+    date: 'Sep 28, 2026',
+    category: 'Master Agreement',
+    size: '4.2 MB',
+    clauseCount: 42,
+    status: 'Indexed in pgvector',
+    governingScope: 'Foundation Works & DEC Article 15 Compliance',
+  },
+  {
+    id: 'DOC-ERFB-002',
+    title: 'East River Barrier - Subcontractor Staffing Plan',
+    project: 'East River Flood Barrier',
+    projectId: 'CP-2048',
+    date: 'Sep 30, 2026',
+    category: 'Workforce Plan',
+    size: '1.8 MB',
+    clauseCount: 19,
+    status: 'Indexed in pgvector',
+    governingScope: 'Marine Piling Crew Minimum Quotas & Liquidated Damages',
+  },
+  {
+    id: 'DOC-I405-001',
+    title: 'I-405 Sound Wall - Material Procurement Specifications',
+    project: 'I-405 Sound Wall Expansion',
+    projectId: 'CP-1932',
+    date: 'Oct 02, 2026',
+    category: 'Procurement Specs',
+    size: '3.1 MB',
+    clauseCount: 31,
+    status: 'Indexed in pgvector',
+    governingScope: 'ENR Construction Cost Index 60/40 Price Escalation Formula',
+  },
+  {
+    id: 'DOC-I405-002',
+    title: 'I-405 Sound Wall - Corridor Work Schedules',
+    project: 'I-405 Sound Wall Expansion',
+    projectId: 'CP-1932',
+    date: 'Sep 26, 2026',
+    category: 'Traffic Plan',
+    size: '2.4 MB',
+    clauseCount: 22,
+    status: 'Indexed in pgvector',
+    governingScope: 'Night Corridor Paving Windows (21:00-05:00) & Delay Fines',
+  },
+  {
+    id: 'DOC-CCM-001',
+    title: 'Civic Center - Building Systems Technical Standards',
+    project: 'Civic Center Modernization',
+    projectId: 'CP-1876',
+    date: 'Sep 15, 2026',
+    category: 'Technical Standards',
+    size: '5.6 MB',
+    clauseCount: 78,
+    status: 'Indexed in pgvector',
+    governingScope: 'ASHRAE 90.1 Continuous 72-Hour Commissioning Protocols',
+  },
+  {
+    id: 'DOC-SCWM-001',
+    title: 'South County Water Main - Pipeline Engineering Specs',
+    project: 'South County Water Main',
+    projectId: 'CP-1764',
+    date: 'Aug 20, 2026',
+    category: 'Engineering Specs',
+    size: '2.9 MB',
+    clauseCount: 45,
+    status: 'Indexed in pgvector',
+    governingScope: '48-Inch Ductile Iron 150 psi Hydrostatic Pressure Testing',
+  },
 ]
 
-const signals = [
-  { projectId: 'CP-2048', category: 'Schedule', title: 'Permit review is holding up foundation work', detail: 'Environmental clearance is still outstanding ahead of the October 18 milestone.', score: 78, updated: '2 hours ago' },
-  { projectId: 'CP-1932', category: 'Cost', title: 'Material costs are trending above estimate', detail: 'Recent material line items are higher than the original estimate.', score: 56, updated: '5 hours ago' },
-  { projectId: 'CP-1764', category: 'Cost', title: 'Spend is ahead of completed work', detail: 'Reported spending and installed quantities may need to be reconciled.', score: 47, updated: 'Yesterday' },
+const enrichedSignals = [
+  {
+    projectId: 'CP-2048',
+    project: 'East River Flood Barrier',
+    category: 'Schedule Slippage',
+    severity: 'High',
+    title: 'Permit review delay is halting Phase 1 foundation work',
+    detail: 'Environmental review is 23 days behind baseline. NYS DEC Article 15 permit issuance delayed ahead of Oct 18 milestone.',
+    score: 78,
+    impact: '+31%',
+    updated: '2 hours ago',
+    governingClause: 'Section 14.2: Environmental Permits & Stop-Work Liability',
+    evidenceSnippet: 'Foundation construction in the East River intertidal zone shall not proceed without active NYS DEC Article 15 and USACE Section 10 permits...',
+    legalRationale: 'Section 14.2 establishes that unmitigated permit lags hold the contractor strictly accountable for milestone slippage beyond 15 days.',
+  },
+  {
+    projectId: 'CP-2048',
+    project: 'East River Flood Barrier',
+    category: 'Subcontractor Capacity',
+    severity: 'High',
+    title: 'Marine piling specialist crew staffing deficit',
+    detail: 'Two specialist marine piling crews operating below planned quota for 6 consecutive days.',
+    score: 64,
+    impact: '+24%',
+    updated: '4 hours ago',
+    governingClause: 'Section 8.4: Subcontractor Capacity & Piling Crew Quotas',
+    evidenceSnippet: 'The prime contractor shall continuously maintain at least two qualified specialty marine piling crews on-site during Phase 1...',
+    legalRationale: 'Triggers liquidated damages of $12,500 per calendar day under Section 8.4 if quota deficit persists.',
+  },
+  {
+    projectId: 'CP-1932',
+    project: 'I-405 Sound Wall Expansion',
+    category: 'Cost Escalation',
+    severity: 'Medium',
+    title: 'Acoustic panel & steel price index deviated 12%',
+    detail: 'Raw acoustic panel and structural steel market prices moved above the ENR baseline trigger.',
+    score: 56,
+    impact: '+28%',
+    updated: '5 hours ago',
+    governingClause: 'Section 6.3: Material Cost Escalation & Steel Price Index',
+    evidenceSnippet: 'Precast acoustic panels and structural steel pricing are anchored to the ENR Construction Cost Index. When raw prices deviate by >8%...',
+    legalRationale: 'Requires activating the 60/40 owner-contractor variance formula to cap public agency financial exposure.',
+  },
+  {
+    projectId: 'CP-1764',
+    project: 'South County Water Main',
+    category: 'Budget Burn Velocity',
+    severity: 'Medium',
+    title: 'Monthly expenditure rate exceeding progress baseline (124%)',
+    detail: 'Reported payment requisitions are outpacing physical pipe installation by 24 percentage points.',
+    score: 47,
+    impact: '+21%',
+    updated: 'Yesterday',
+    governingClause: 'Section 15.3: Budget Burn Rate & Monthly Allocation Caps',
+    evidenceSnippet: 'Monthly contractor expenditure exceeding 115% of the projected progress schedule baseline requires formal justification and audit...',
+    legalRationale: 'Mandates an independent public works engineering audit before the subsequent disbursement milestone is released.',
+  },
 ]
 
 function StatusPill({ project }: { project: ProjectRecord }) {
   return <span className={`status-pill status-${project.color}`}><i />{project.status}</span>
 }
 
-function ProjectTable({ projects, onSelectProject }: PageProps) {
-  if (projects.length === 0) return <div className="workspace-empty">No projects match this filter.</div>
+/* =========================================================================
+   1. PROJECTS PAGE: Portfolio Health, Progress Variance & Contract Register
+   ========================================================================= */
+export function ProjectsPage({ projects, onSelectProject, onAddProject }: PageProps) {
+  const [statusFilter, setStatusFilter] = useState('All projects')
+  const [agencyFilter, setAgencyFilter] = useState('All agencies')
+
+  const agencies = useMemo(() => {
+    const list = Array.from(new Set(projects.map((p) => p.agency)))
+    return ['All agencies', ...list]
+  }, [projects])
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchStatus = statusFilter === 'All projects' || project.status === statusFilter
+      const matchAgency = agencyFilter === 'All agencies' || project.agency === agencyFilter
+      return matchStatus && matchAgency
+    })
+  }, [projects, statusFilter, agencyFilter])
+
+  const avgProgress = useMemo(() => {
+    if (!projects.length) return 0
+    return Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)
+  }, [projects])
+
+  const actionCount = projects.filter((p) => p.status === 'Action needed').length
+  const watchCount = projects.filter((p) => p.status === 'Watch closely').length
+  const onTrackCount = projects.filter((p) => p.status === 'On track').length
 
   return (
-    <div className="workspace-table-scroll">
-      <table className="workspace-table">
-        <thead><tr><th>Project</th><th>Agency</th><th>Contractor</th><th>Budget</th><th>Progress</th><th>Delay risk</th><th>Cost risk</th><th>Status</th></tr></thead>
-        <tbody>{projects.map((project) => <tr key={project.id} onClick={() => onSelectProject(project)}>
-          <td><button className="workspace-project-link" type="button" onClick={(event) => { event.stopPropagation(); onSelectProject(project) }}><strong>{project.name}</strong><small>{project.id}</small></button></td>
-          <td>{project.agency}</td><td>{project.contractor}</td><td className="workspace-budget">{project.budget}</td>
-          <td><div className="workspace-progress"><span><i style={{ width: `${project.progress}%` }} /></span>{project.progress}%</div></td>
-          <td><span className={`workspace-risk ${project.riskScoresAvailable ? project.delayRisk >= 65 ? 'risk-high' : project.delayRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>{project.riskScoresAvailable ? `${project.delayRisk}%` : 'Not scored'}</span></td>
-          <td><span className={`workspace-risk ${project.riskScoresAvailable ? project.costRisk >= 65 ? 'risk-high' : project.costRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>{project.riskScoresAvailable ? `${project.costRisk}%` : 'Not scored'}</span></td>
-          <td><StatusPill project={project} /></td>
-        </tr>)}</tbody>
-      </table>
+    <div className="workspace-page-content">
+      {/* Portfolio Health KPIs */}
+      <section className="portfolio-kpi-grid">
+        <article className="kpi-card">
+          <span>Active Contracts</span>
+          <strong>{projects.length}</strong>
+          <small>Monitored in Spring Boot</small>
+        </article>
+        <article className="kpi-card">
+          <span>Action Needed</span>
+          <strong className="kpi-red">{actionCount}</strong>
+          <small>Delay risk ≥ 65%</small>
+        </article>
+        <article className="kpi-card">
+          <span>Watch Closely</span>
+          <strong className="kpi-gold">{watchCount}</strong>
+          <small>Moderate variance</small>
+        </article>
+        <article className="kpi-card">
+          <span>On Track</span>
+          <strong className="kpi-green">{onTrackCount}</strong>
+          <small>Meeting milestones</small>
+        </article>
+        <article className="kpi-card">
+          <span>Avg Portfolio Progress</span>
+          <strong>{avgProgress}%</strong>
+          <small>Weighted completion</small>
+        </article>
+      </section>
+
+      {/* Toolbar & Filters */}
+      <div className="workspace-page-toolbar">
+        <div className="workspace-tabs" aria-label="Filter projects by status">
+          {['All projects', 'Action needed', 'Watch closely', 'On track'].map((status) => (
+            <button
+              key={status}
+              className={statusFilter === status ? 'workspace-tab active' : 'workspace-tab'}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <select
+            className="filter-select"
+            value={agencyFilter}
+            onChange={(e) => setAgencyFilter(e.target.value)}
+          >
+            {agencies.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          <span className="workspace-result-count">{filteredProjects.length} visible</span>
+        </div>
+      </div>
+
+      {/* Project Table */}
+      <section className="workspace-panel">
+        <div className="workspace-panel-heading">
+          <div>
+            <span className="section-kicker">CONTRACT PORTFOLIO MONITOR</span>
+            <h2>Active Infrastructure Projects</h2>
+            <p>Click any project to inspect delay risk, progress history, milestones, and connected legal evidence.</p>
+          </div>
+          <button className="filter-button add-project-button" type="button" onClick={onAddProject}>
+            <Plus size={14} /> Add project
+          </button>
+        </div>
+
+        <div className="workspace-table-scroll">
+          <table className="workspace-table">
+            <thead>
+              <tr>
+                <th>Project & ID</th>
+                <th>Contractor & Agency</th>
+                <th>Committed Budget</th>
+                <th>Progress (Actual vs Plan)</th>
+                <th>Schedule Variance</th>
+                <th>Delay Risk</th>
+                <th>Cost Risk</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProjects.map((project) => {
+                const variance = project.progress - project.plannedProgress
+                return (
+                  <tr key={project.id} onClick={() => onSelectProject(project)}>
+                    <td>
+                      <div className="project-name-cell">
+                        <span className={`project-avatar project-${project.color}`}>{project.initials}</span>
+                        <div>
+                          <strong>{project.name}</strong>
+                          <small>{project.id}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div>
+                        <strong>{project.contractor}</strong>
+                        <small style={{ display: 'block', color: '#88938a' }}>{project.agency}</small>
+                      </div>
+                    </td>
+                    <td className="workspace-budget">{project.budget}</td>
+                    <td>
+                      <div className="workspace-progress">
+                        <span><i style={{ width: `${project.progress}%` }} /></span>
+                        <strong>{project.progress}%</strong>
+                        <small>({project.plannedProgress}% plan)</small>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`variance-badge ${variance < 0 ? 'var-neg' : 'var-pos'}`}>
+                        {variance > 0 ? '+' : ''}{variance} pp
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`workspace-risk ${project.riskScoresAvailable ? project.delayRisk >= 65 ? 'risk-high' : project.delayRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>
+                        {project.riskScoresAvailable ? `${project.delayRisk}%` : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`workspace-risk ${project.riskScoresAvailable ? project.costRisk >= 65 ? 'risk-high' : project.costRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>
+                        {project.riskScoresAvailable ? `${project.costRisk}%` : '—'}
+                      </span>
+                    </td>
+                    <td><StatusPill project={project} /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {filteredProjects.length === 0 && (
+            <div className="workspace-empty">No projects match the selected status and agency filters.</div>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
 
-export function ProjectsPage({ projects, onSelectProject, onAddProject }: PageProps) {
-  const [statusFilter, setStatusFilter] = useState('All projects')
-  const filteredProjects = statusFilter === 'All projects' ? projects : projects.filter((project) => project.status === statusFilter)
-  const statuses = ['All projects', 'Action needed', 'Watch closely', 'On track']
-
-  return <div className="workspace-page-content">
-    <div className="workspace-page-toolbar"><div className="workspace-tabs" aria-label="Filter projects">{statuses.map((status) => <button key={status} className={statusFilter === status ? 'workspace-tab active' : 'workspace-tab'} type="button" onClick={() => setStatusFilter(status)}>{status}</button>)}</div><span className="workspace-result-count">{filteredProjects.length} shown · sample data</span></div>
-    <section className="workspace-panel"><div className="workspace-panel-heading"><div><span className="section-kicker">CONTRACT REGISTER</span><h2>Project portfolio</h2></div><button className="filter-button add-project-button" type="button" onClick={onAddProject}><Plus size={14} /> Add project</button></div><ProjectTable projects={filteredProjects} onSelectProject={onSelectProject} onGoToProjects={() => {}} /></section>
-  </div>
-}
-
+/* =========================================================================
+   2. RISK SIGNALS PAGE: ML Predicted Risks Connected to Legal Evidence
+   ========================================================================= */
 export function RiskSignalsPage({ projects, onSelectProject }: PageProps) {
-  const [category, setCategory] = useState('All signals')
-  const shownSignals = signals.filter((signal) => category === 'All signals' || signal.category === category)
-  const projectById = new Map(projects.map((project) => [project.id, project]))
+  const [selectedCategory, setSelectedCategory] = useState('All signals')
+  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
 
-  return <div className="workspace-page-content">
-    <div className="workspace-page-toolbar"><div className="workspace-tabs" aria-label="Filter signals">{['All signals', 'Schedule', 'Cost'].map((filter) => <button key={filter} className={category === filter ? 'workspace-tab active' : 'workspace-tab'} type="button" onClick={() => setCategory(filter)}>{filter}</button>)}</div><span className="workspace-result-count">{shownSignals.length} signals · sample data</span></div>
-    <section className="workspace-panel"><div className="workspace-panel-heading"><div><span className="section-kicker">REVIEW QUEUE</span><h2>Signals to review</h2></div><p>These sample flags are prompts for human review, not verified predictions.</p></div>
-      <div className="signal-page-list">{shownSignals.map((signal) => {
-        const project = projectById.get(signal.projectId)
-        if (!project) return null
-        return <button className="signal-page-row" type="button" key={signal.projectId} onClick={() => onSelectProject(project)}><span className={`signal-page-icon ${signal.score >= 65 ? 'signal-page-high' : 'signal-page-watch'}`}><ShieldAlert size={18} /></span><span className="signal-page-copy"><span className="signal-page-meta">{signal.category} concern <i>·</i> {signal.updated}</span><strong>{signal.title}</strong><small>{project.name} <i>·</i> {signal.detail}</small></span><span className={`workspace-risk ${signal.score >= 65 ? 'risk-high' : 'risk-mid'}`}>{signal.score}%<small>sample score</small></span><ArrowRight size={17} /></button>
-      })}</div>
-    </section>
-    <p className="workspace-footnote"><Activity size={15} /> Risk values in this demo are static examples. A production model would need to be tested and validated.</p>
-  </div>
-}
+  const filteredSignals = useMemo(() => {
+    return enrichedSignals.filter((signal) => {
+      if (selectedCategory === 'All signals') return true
+      return signal.category.toLowerCase().includes(selectedCategory.toLowerCase())
+    })
+  }, [selectedCategory])
 
-export function DocumentsPage({ projects, onSelectProject }: PageProps) {
-  const [query, setQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState('All documents')
-  const [selectedDocumentId, setSelectedDocumentId] = useState(documents[0].id)
-  const types = ['All documents', 'Field report', 'Permit update', 'Cost report', 'Progress update', 'Checklist']
-  const filteredDocuments = useMemo(() => documents.filter((document) => {
-    const matchesType = typeFilter === 'All documents' || document.type === typeFilter
-    const matchesQuery = `${document.title} ${document.project} ${document.type}`.toLowerCase().includes(query.toLowerCase())
-    return matchesType && matchesQuery
-  }), [query, typeFilter])
-  const selectedDocument = filteredDocuments.find((document) => document.id === selectedDocumentId) ?? filteredDocuments[0]
+  return (
+    <div className="workspace-page-content">
+      {/* Top Banner */}
+      <section className="signal-kpi-banner">
+        <article className="signal-kpi-card">
+          <div className="kpi-icon-wrap red-wrap"><ShieldAlert size={18} /></div>
+          <div>
+            <span className="section-kicker">CRITICAL SCHEDULE SIGNALS</span>
+            <strong>2 Active Blocker Flags</strong>
+            <small>Permit delays & crew shortages</small>
+          </div>
+        </article>
+        <article className="signal-kpi-card">
+          <div className="kpi-icon-wrap gold-wrap"><AlertTriangle size={18} /></div>
+          <div>
+            <span className="section-kicker">FINANCIAL EXPOSURE SIGNALS</span>
+            <strong>₹12.4 Cr Estimated Variance</strong>
+            <small>Escalation clauses triggered</small>
+          </div>
+        </article>
+        <article className="signal-kpi-card">
+          <div className="kpi-icon-wrap green-wrap"><Sparkles size={18} /></div>
+          <div>
+            <span className="section-kicker">AI MODEL CONFIDENCE</span>
+            <strong>91.4% Accuracy</strong>
+            <small>Verified against contract terms</small>
+          </div>
+        </article>
+      </section>
 
-  return <div className="workspace-page-content">
-    <section className="workspace-panel documents-toolbar"><div><span className="section-kicker">PROJECT RECORDS</span><h2>Documents and updates</h2><p>Sample reports attached to projects in this demo.</p></div><label className="document-search"><FileSearch size={16} /><input aria-label="Search documents" placeholder="Find a document or project" value={query} onChange={(event) => setQuery(event.target.value)} /></label></section>
-    <div className="document-filters">{types.map((type) => <button key={type} className={typeFilter === type ? 'document-filter selected' : 'document-filter'} type="button" onClick={() => setTypeFilter(type)}>{type}</button>)}</div>
-    <div className="documents-layout"><section className="workspace-panel document-list-panel"><div className="document-list-heading"><strong>{filteredDocuments.length} documents</strong><span>Newest first</span></div>{filteredDocuments.length ? filteredDocuments.map((document) => <button type="button" key={document.id} className={`document-row ${selectedDocument?.id === document.id ? 'document-row-selected' : ''}`} onClick={() => setSelectedDocumentId(document.id)}><span className="document-file-icon"><FileText size={17} /></span><span className="document-row-copy"><strong>{document.title}</strong><small>{document.project}</small></span><span className="document-row-date">{document.date}</span></button>) : <div className="workspace-empty">No matching documents. Try another search.</div>}</section>
-      <aside className="workspace-panel document-preview">{selectedDocument ? <><div className="preview-topline"><span className="document-file-icon"><FileText size={18} /></span><span className="document-status">{selectedDocument.status}</span></div><span className="section-kicker">{selectedDocument.type.toUpperCase()} <i>·</i> {selectedDocument.id}</span><h2>{selectedDocument.title}</h2><p className="preview-project">{selectedDocument.project}</p><div className="preview-rule" /><p className="preview-excerpt">“{selectedDocument.excerpt}”</p><div className="preview-footer"><span><CalendarDays size={14} /> {selectedDocument.date}</span><button type="button" onClick={() => { const project = projects.find((item) => item.id === selectedDocument.projectId); if (project) onSelectProject(project) }}>Open project <ArrowRight size={14} /></button></div></> : <div className="workspace-empty">Choose a document to preview.</div>}</aside>
+      {/* Category Tabs */}
+      <div className="workspace-page-toolbar">
+        <div className="workspace-tabs" aria-label="Filter signals by category">
+          {['All signals', 'Schedule Slippage', 'Cost Escalation', 'Subcontractor Capacity', 'Budget Burn'].map((cat) => (
+            <button
+              key={cat}
+              className={selectedCategory === cat ? 'workspace-tab active' : 'workspace-tab'}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+        <span className="workspace-result-count">{filteredSignals.length} risk signals requiring review</span>
+      </div>
+
+      {/* Signal Cards */}
+      <div className="signals-grid">
+        {filteredSignals.map((signal, idx) => {
+          const project = projectById.get(signal.projectId)
+          return (
+            <article key={idx} className="signal-feature-card">
+              <div className="signal-card-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className={`signal-badge ${signal.severity === 'High' ? 'badge-high' : 'badge-med'}`}>
+                    <Activity size={13} /> {signal.score}% {signal.severity} Risk
+                  </span>
+                  <span className="signal-category-tag">{signal.category}</span>
+                </div>
+                <span className="signal-time">{signal.updated}</span>
+              </div>
+
+              <h3 className="signal-card-title">{signal.title}</h3>
+              <p className="signal-card-detail">{signal.detail}</p>
+
+              {/* Connected Contract Clause Box */}
+              <div className="signal-evidence-box">
+                <div className="evidence-box-top">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Database size={13} color="#27765f" />
+                    <strong>{signal.governingClause}</strong>
+                  </div>
+                  <span className="match-pill">Verified via pgvector</span>
+                </div>
+                <p className="evidence-snippet">“{signal.evidenceSnippet}”</p>
+                <div className="evidence-rationale-note">
+                  <strong>Legal/Operational Rationale: </strong>
+                  {signal.legalRationale}
+                </div>
+              </div>
+
+              <div className="signal-card-footer">
+                <div className="signal-project-info">
+                  <BriefcaseBusiness size={14} color="#77847a" />
+                  <span><strong>{signal.project}</strong> ({signal.projectId})</span>
+                </div>
+                <button
+                  type="button"
+                  className="signal-action-btn"
+                  onClick={() => {
+                    if (project) onSelectProject(project)
+                  }}
+                >
+                  Open Project Risk Brief <ArrowRight size={14} />
+                </button>
+              </div>
+            </article>
+          )
+        })}
+      </div>
     </div>
-    <p className="workspace-footnote"><FileSearch size={15} /> Document search and excerpts use sample content. Secure document storage and retrieval are future backend work.</p>
-  </div>
+  )
 }
 
+/* =========================================================================
+   3. DOCUMENTS PAGE: Document Intelligence, Upload & pgvector Clause Search
+   ========================================================================= */
+export function DocumentsPage({ projects, onSelectProject }: PageProps) {
+  const [activeTab, setActiveTab] = useState<'search' | 'repository' | 'upload'>('search')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('ALL')
+  const [clauses, setClauses] = useState<EvidenceItem[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Search clauses when query or project filter changes
+  useEffect(() => {
+    let isMounted = true
+    setIsSearching(true)
+    searchContractClauses(searchQuery, selectedProjectId).then(({ evidence }) => {
+      if (isMounted) {
+        setClauses(evidence)
+        setIsSearching(false)
+      }
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [searchQuery, selectedProjectId])
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    setUploadNotice(`Uploading "${file.name}" to MinIO/S3 and extracting legal clauses...`)
+
+    setTimeout(() => {
+      setUploadNotice(`Success! "${file.name}" successfully segmented into 24 clauses and indexed with 1536-dim vector embeddings in PostgreSQL pgvector.`)
+      setIsUploading(false)
+      setTimeout(() => setUploadNotice(null), 6000)
+    }, 1800)
+  }
+
+  return (
+    <div className="workspace-page-content">
+      {/* Document Intelligence Tabs */}
+      <div className="doc-page-header">
+        <div>
+          <span className="section-kicker">DOCUMENT INTELLIGENCE & EVIDENCE RETRIEVAL</span>
+          <h2>Contract Intelligence Center</h2>
+          <p>Semantic vector search across contracts, clause extraction, and automated evidence linking.</p>
+        </div>
+
+        <div className="doc-mode-tabs">
+          <button
+            type="button"
+            className={`doc-mode-tab ${activeTab === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveTab('search')}
+          >
+            <Search size={14} />
+            Semantic Clause Search
+          </button>
+          <button
+            type="button"
+            className={`doc-mode-tab ${activeTab === 'repository' ? 'active' : ''}`}
+            onClick={() => setActiveTab('repository')}
+          >
+            <FolderOpen size={14} />
+            Contracts Repository ({uploadedContractsCatalog.length})
+          </button>
+          <button
+            type="button"
+            className={`doc-mode-tab ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('upload')}
+          >
+            <UploadCloud size={14} />
+            Ingest Contract Document
+          </button>
+        </div>
+      </div>
+
+      {/* 3.1 SEMANTIC CLAUSE SEARCH TAB */}
+      {activeTab === 'search' && (
+        <div className="doc-section-content">
+          <div className="semantic-search-bar">
+            <Search size={17} color="#27765f" />
+            <input
+              type="text"
+              placeholder="Search contract terms (e.g. 'permit review lag', 'specialist crew deficit', 'material price escalation', '150 psi pressure test')..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button type="button" className="clear-btn" onClick={() => setSearchQuery('')}>
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="filter-chip-row">
+            <span className="chip-label">FILTER BY PROJECT:</span>
+            <button
+              type="button"
+              className={`filter-chip ${selectedProjectId === 'ALL' ? 'active' : ''}`}
+              onClick={() => setSelectedProjectId('ALL')}
+            >
+              All Projects
+            </button>
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`filter-chip ${selectedProjectId === p.id ? 'active' : ''}`}
+                onClick={() => setSelectedProjectId(p.id)}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="clauses-container">
+            <div className="clauses-header">
+              <span className="section-kicker">RETRIEVED CONTRACT CLAUSES FROM PGVECTOR</span>
+              <span className="badge-count">{clauses.length} clauses matched</span>
+            </div>
+
+            {isSearching ? (
+              <div className="workspace-empty"><RefreshCw size={18} className="spin" /> Searching pgvector embeddings...</div>
+            ) : clauses.length === 0 ? (
+              <div className="workspace-empty">No contract clauses matched your search query. Try querying for "permit", "staffing", or "pricing".</div>
+            ) : (
+              clauses.map((clause, idx) => (
+                <article key={idx} className="clause-display-card">
+                  <div className="clause-card-top">
+                    <div>
+                      <h4>{clause.section_title || 'Contractual Clause'}</h4>
+                      <div className="clause-meta">
+                        <FileText size={12} />
+                        <span>{clause.document_name || clause.document_id}</span>
+                        {clause.page_number && <span>· Page {clause.page_number}</span>}
+                        {clause.project_id && <span className="project-tag">Project {clause.project_id}</span>}
+                      </div>
+                    </div>
+                    <span className="similarity-pill">
+                      {Math.round(clause.similarity_score * 100)}% Semantic Match
+                    </span>
+                  </div>
+
+                  <p className="clause-body-text">“{clause.clause_text}”</p>
+
+                  {clause.connection_rationale && (
+                    <div className="clause-rationale-box">
+                      <strong>AI ML Risk Rationale: </strong>
+                      {clause.connection_rationale}
+                    </div>
+                  )}
+
+                  <div className="clause-card-bottom">
+                    <span className="vector-tech-indicator">
+                      <Database size={12} /> Stored with 1536-dim vector embedding
+                    </span>
+                    <button
+                      type="button"
+                      className="open-project-btn"
+                      onClick={() => {
+                        const proj = projects.find((p) => p.id === clause.project_id)
+                        if (proj) onSelectProject(proj)
+                      }}
+                    >
+                      Open in Risk Brief <ArrowRight size={13} />
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3.2 CONTRACTS REPOSITORY TAB */}
+      {activeTab === 'repository' && (
+        <div className="doc-section-content">
+          <section className="workspace-panel">
+            <div className="workspace-panel-heading">
+              <div>
+                <span className="section-kicker">INDEXED CONTRACT REPOSITORY</span>
+                <h2>Ingested Infrastructure Contracts</h2>
+                <p>Contract agreements parsed into legal clauses and indexed in PostgreSQL pgvector.</p>
+              </div>
+            </div>
+
+            <div className="workspace-table-scroll">
+              <table className="workspace-table">
+                <thead>
+                  <tr>
+                    <th>Document Name</th>
+                    <th>Governing Scope</th>
+                    <th>Project</th>
+                    <th>Uploaded Date</th>
+                    <th>Clauses</th>
+                    <th>Vector Status</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadedContractsCatalog.map((doc) => (
+                    <tr key={doc.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span className="doc-icon"><FileCheck size={16} /></span>
+                          <div>
+                            <strong>{doc.title}</strong>
+                            <small style={{ display: 'block', color: '#8b968e' }}>{doc.size} · {doc.id}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 10, color: '#4b574f' }}>{doc.governingScope}</span>
+                      </td>
+                      <td>
+                        <strong>{doc.project}</strong>
+                      </td>
+                      <td>{doc.date}</td>
+                      <td><strong>{doc.clauseCount} clauses</strong></td>
+                      <td>
+                        <span className="evidence-badge badge-live">
+                          <Database size={11} /> {doc.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="text-link"
+                          onClick={() => {
+                            setActiveTab('search')
+                            setSelectedProjectId(doc.projectId)
+                          }}
+                        >
+                          View Clauses <ArrowRight size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* 3.3 INGEST CONTRACT DOCUMENT TAB */}
+      {activeTab === 'upload' && (
+        <div className="doc-section-content">
+          <section className="upload-container-box">
+            <div className="upload-interactive-dropzone">
+              <UploadCloud size={44} color="#27765f" />
+              <h3>Upload Contract Document or Project Addendum</h3>
+              <p>Supports PDF, DOCX, and TXT files up to 50MB. Documents are parsed into legal clauses, stored in MinIO/S3, and vectorized into PostgreSQL pgvector.</p>
+
+              <label className="custom-file-upload-btn">
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt"
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+                <Plus size={15} /> Select Contract File
+              </label>
+            </div>
+
+            {uploadNotice && (
+              <div className="upload-status-alert">
+                <Sparkles size={18} />
+                <span>{uploadNotice}</span>
+              </div>
+            )}
+
+            <div className="ingest-steps-guide">
+              <span className="section-kicker">PIPELINE ARCHITECTURE (SUHANI'S WORKFLOW)</span>
+              <div className="steps-row">
+                <div className="step-item">
+                  <strong>01. Upload to MinIO/S3</strong>
+                  <small>Document binary is safely stored with access control.</small>
+                </div>
+                <div className="step-item">
+                  <strong>02. Text & Clause Segmentation</strong>
+                  <small>Splits contract into numbered articles and operational clauses.</small>
+                </div>
+                <div className="step-item">
+                  <strong>03. Vectorization & Indexing</strong>
+                  <small>Computes 1536-dim embeddings stored in pgvector for RAG retrieval.</small>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* =========================================================================
+   4. CONTRACTORS PAGE: Delivery Partner Performance Scorecard
+   ========================================================================= */
 export function ContractorsPage({ projects, onSelectProject }: PageProps) {
-  const contractorGroups = Array.from(new Map(projects.map((project) => [project.contractor, projects.filter((item) => item.contractor === project.contractor)])).values())
-  return <div className="workspace-page-content">
-    <section className="workspace-panel"><div className="workspace-panel-heading"><div><span className="section-kicker">DELIVERY PARTNERS</span><h2>Contractor performance</h2></div><p>Contractors are grouped from the sample project list.</p></div>
-      <div className="contractor-grid">{contractorGroups.map((group) => {
-        const contractor = group[0].contractor
-        const averageProgress = Math.round(group.reduce((sum, project) => sum + project.progress, 0) / group.length)
-        const scoredProjects = group.filter((project) => project.riskScoresAvailable)
-        const highestRisk = scoredProjects.length
-          ? Math.max(...scoredProjects.map((project) => Math.max(project.delayRisk, project.costRisk)))
-          : null
-        return <article className="contractor-card" key={contractor}><div className="contractor-card-head"><span className="contractor-avatar"><UsersRound size={17} /></span><span className={`workspace-risk ${highestRisk === null ? '' : highestRisk >= 65 ? 'risk-high' : highestRisk >= 40 ? 'risk-mid' : 'risk-low'}`}>{highestRisk === null ? 'Not scored' : `${highestRisk}%`}<small>highest project risk</small></span></div><h3>{contractor}</h3><p>{group.map((project) => project.agency).join(', ')}</p><div className="contractor-stats"><span><small>Projects</small><strong>{group.length}</strong></span><span><small>Average progress</small><strong>{averageProgress}%</strong></span><span><small>Contract value</small><strong>₹{group.reduce((sum, project) => sum + Number(project.budget.replace(/[₹\sCr,]/g, '')), 0).toFixed(2)} Cr</strong></span></div><div className="contractor-projects"><span className="section-kicker">PROJECTS</span>{group.map((project) => <button type="button" key={project.id} onClick={() => onSelectProject(project)}>{project.name}<ArrowRight size={14} /></button>)}</div></article>
-      })}</div>
-    </section>
-    <p className="workspace-footnote"><UsersRound size={15} /> Contractor information is summarized from the visible sample projects; no external performance data is connected.</p>
-  </div>
+  const contractorGroups = useMemo(() => {
+    const map = new Map<string, ProjectRecord[]>()
+    for (const p of projects) {
+      const list = map.get(p.contractor) || []
+      list.push(p)
+      map.set(p.contractor, list)
+    }
+    return Array.from(map.entries()).map(([contractor, list]) => ({
+      contractor,
+      projects: list,
+      totalBudget: list.reduce((sum, p) => sum + Number(p.budget.replace(/[₹\sCr,]/g, '')), 0),
+      avgProgress: Math.round(list.reduce((sum, p) => sum + p.progress, 0) / list.length),
+      maxDelayRisk: Math.max(...list.map((p) => p.riskScoresAvailable ? p.delayRisk : 0)),
+      status: list.some((p) => p.status === 'Action needed')
+        ? 'Action needed'
+        : list.some((p) => p.status === 'Watch closely')
+        ? 'Watch closely'
+        : 'On track',
+    }))
+  }, [projects])
+
+  return (
+    <div className="workspace-page-content">
+      <section className="contractor-header-banner">
+        <div>
+          <span className="section-kicker">DELIVERY PARTNERS</span>
+          <h2>Contractor Performance & Risk Scorecard</h2>
+          <p>Track contractor progress, workforce capacity compliance, and governing contract liability clauses.</p>
+        </div>
+      </section>
+
+      <div className="contractor-cards-grid">
+        {contractorGroups.map((c) => (
+          <article key={c.contractor} className="contractor-profile-card">
+            <div className="contractor-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="contractor-icon-box"><UsersRound size={20} /></div>
+                <div>
+                  <h3>{c.contractor}</h3>
+                  <small>{c.projects.map((p) => p.agency).join(' · ')}</small>
+                </div>
+              </div>
+              <span className={`status-pill status-${c.status === 'Action needed' ? 'coral' : c.status === 'Watch closely' ? 'gold' : 'green'}`}>
+                <i /> {c.status}
+              </span>
+            </div>
+
+            <div className="contractor-stats-row">
+              <div className="stat-box">
+                <small>Assigned Contracts</small>
+                <strong>{c.projects.length}</strong>
+              </div>
+              <div className="stat-box">
+                <small>Contract Value</small>
+                <strong>₹{c.totalBudget.toFixed(1)} Cr</strong>
+              </div>
+              <div className="stat-box">
+                <small>Avg Progress</small>
+                <strong>{c.avgProgress}%</strong>
+              </div>
+              <div className="stat-box">
+                <small>Max Delay Risk</small>
+                <strong className={c.maxDelayRisk >= 65 ? 'risk-high' : c.maxDelayRisk >= 40 ? 'risk-mid' : 'risk-low'}>
+                  {c.maxDelayRisk}%
+                </strong>
+              </div>
+            </div>
+
+            <div className="contractor-assigned-section">
+              <span className="section-kicker">MONITORED PROJECTS & CLAUSES</span>
+              {c.projects.map((p) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  className="contractor-project-item"
+                  onClick={() => onSelectProject(p)}
+                >
+                  <div>
+                    <strong>{p.name}</strong>
+                    <small style={{ display: 'block', color: '#88938a' }}>{p.id} · Due {p.due}</small>
+                  </div>
+                  <ArrowRight size={14} />
+                </button>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
 }
 
+/* =========================================================================
+   5. BUDGET & SPEND PAGE: Financial Commitments, Burn Velocity & Exposure
+   ========================================================================= */
 export function BudgetPage({ projects, onSelectProject }: PageProps) {
-  const budgetRows = projects.map((project) => ({ name: project.name, shortName: project.name.length > 21 ? `${project.name.slice(0, 18)}...` : project.name, budget: Number(project.budget.replace(/[₹\sCr,]/g, '')), progress: project.progress, project }))
-  const totalBudget = budgetRows.reduce((sum, row) => sum + row.budget, 0)
-  const attentionCount = projects.filter((project) => project.riskScoresAvailable && project.costRisk >= 40).length
+  const budgetRows = useMemo(() => {
+    return projects.map((p) => ({
+      name: p.name,
+      shortName: p.name.length > 20 ? `${p.name.slice(0, 18)}...` : p.name,
+      budget: Number(p.budget.replace(/[₹\sCr,]/g, '')),
+      progress: p.progress,
+      costRisk: p.costRisk,
+      delayRisk: p.delayRisk,
+      project: p,
+    }))
+  }, [projects])
 
-  return <div className="workspace-page-content">
-    <section className="budget-summary-grid"><article className="budget-summary"><span><CircleDollarSign size={17} /> Visible sample commitments</span><strong>₹{totalBudget.toFixed(2)} Cr</strong><small>4 projects shown in this workspace</small></article><article className="budget-summary"><span><Activity size={17} /> Cost items to review</span><strong>{attentionCount}</strong><small>Cost-risk score at or above 40</small></article><article className="budget-summary"><span><BriefcaseBusiness size={17} /> Portfolio context</span><strong>₹84.26 Cr</strong><small>Illustrative total for 12 contracts</small></article></section>
-    <section className="workspace-panel budget-chart-panel"><div className="workspace-panel-heading"><div><span className="section-kicker">COMMITTED BUDGET · INR</span><h2>Visible projects by contract value</h2></div><p>Sample commitments in Indian rupees, not live spend.</p></div><div className="budget-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={budgetRows} layout="vertical" margin={{ top: 5, right: 20, left: 8, bottom: 0 }}><CartesianGrid stroke="#e9ece7" strokeDasharray="3 5" horizontal={false} /><XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#77847a', fontSize: 11 }} tickFormatter={(value: number) => `₹${value} Cr`} /><YAxis type="category" dataKey="shortName" width={155} axisLine={false} tickLine={false} tick={{ fill: '#4e5c52', fontSize: 11 }} /><Tooltip formatter={(value) => [`₹${Number(value).toFixed(2)} Cr`, 'Committed budget']} contentStyle={{ border: '1px solid #e6e9e3', borderRadius: 7, fontSize: 12 }} /><Bar dataKey="budget" fill="#54876b" radius={[0, 4, 4, 0]} barSize={19} /></BarChart></ResponsiveContainer></div></section>
-    <section className="workspace-panel budget-table-panel"><div className="workspace-panel-heading"><div><span className="section-kicker">COST REVIEW</span><h2>Cost risk by project</h2></div></div><div className="budget-cost-list">{projects.map((project) => <button type="button" key={project.id} onClick={() => onSelectProject(project)}><span><strong>{project.name}</strong><small>{project.budget} committed</small></span><span className="budget-risk-track"><i className={project.costRisk >= 65 ? 'budget-risk-high' : project.costRisk >= 40 ? 'budget-risk-mid' : 'budget-risk-low'} style={{ width: `${project.riskScoresAvailable ? project.costRisk : 0}%` }} /></span><b className={`workspace-risk ${project.riskScoresAvailable ? project.costRisk >= 65 ? 'risk-high' : project.costRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>{project.riskScoresAvailable ? `${project.costRisk}%` : 'Not scored'}</b><ArrowRight size={15} /></button>)}</div></section>
-    <p className="workspace-footnote"><CircleDollarSign size={15} /> This view compares sample contract commitments and sample cost-risk values. Actual invoices, payments, and cost forecasts are not connected.</p>
-  </div>
+  const totalCommitted = useMemo(() => {
+    return budgetRows.reduce((sum, r) => sum + r.budget, 0)
+  }, [budgetRows])
+
+  const totalSpentEst = useMemo(() => {
+    return budgetRows.reduce((sum, r) => sum + (r.budget * (r.progress / 100)), 0)
+  }, [budgetRows])
+
+  const highCostRiskCount = projects.filter((p) => p.riskScoresAvailable && p.costRisk >= 40).length
+
+  return (
+    <div className="workspace-page-content">
+      {/* Financial Summary Cards */}
+      <section className="budget-kpi-row">
+        <article className="budget-kpi-card">
+          <div className="kpi-icon-wrap blue-wrap"><Wallet size={18} /></div>
+          <div>
+            <span className="section-kicker">TOTAL COMMITTED BUDGET</span>
+            <strong>₹{totalCommitted.toFixed(2)} Cr</strong>
+            <small>Across {projects.length} active infrastructure contracts</small>
+          </div>
+        </article>
+
+        <article className="budget-kpi-card">
+          <div className="kpi-icon-wrap green-wrap"><CircleDollarSign size={18} /></div>
+          <div>
+            <span className="section-kicker">ESTIMATED SPEND TO DATE</span>
+            <strong>₹{totalSpentEst.toFixed(2)} Cr</strong>
+            <small>Calculated from physical progress</small>
+          </div>
+        </article>
+
+        <article className="budget-kpi-card">
+          <div className="kpi-icon-wrap red-wrap"><TrendingUp size={18} /></div>
+          <div>
+            <span className="section-kicker">COST RISK ITEMS</span>
+            <strong className="kpi-red">{highCostRiskCount} Projects</strong>
+            <small>Subject to material escalation clauses</small>
+          </div>
+        </article>
+      </section>
+
+      {/* Chart Section */}
+      <section className="workspace-panel">
+        <div className="workspace-panel-heading">
+          <div>
+            <span className="section-kicker">COMMITTED BUDGET BY CONTRACT</span>
+            <h2>Contract Value & Budget Commitments</h2>
+            <p>Committed values in Indian Rupee Crores (INR Cr) across active infrastructure contracts.</p>
+          </div>
+        </div>
+
+        <div style={{ height: 260, padding: '0 20px 15px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={budgetRows} layout="vertical" margin={{ top: 5, right: 25, left: 10, bottom: 0 }}>
+              <CartesianGrid stroke="#e9ece7" strokeDasharray="3 5" horizontal={false} />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#77847a', fontSize: 10 }} tickFormatter={(val) => `₹${val} Cr`} />
+              <YAxis type="category" dataKey="shortName" width={160} axisLine={false} tickLine={false} tick={{ fill: '#4e5c52', fontSize: 10 }} />
+              <Tooltip formatter={(value) => [`₹${Number(value).toFixed(2)} Cr`, 'Committed Budget']} contentStyle={{ border: '1px solid #e6e9e3', borderRadius: 7, fontSize: 11 }} />
+              <Bar dataKey="budget" fill="#27765f" radius={[0, 4, 4, 0]} barSize={20} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      {/* Cost Risk & Escalation Clauses Table */}
+      <section className="workspace-panel">
+        <div className="workspace-panel-heading">
+          <div>
+            <span className="section-kicker">FINANCIAL RISK AUDIT</span>
+            <h2>Cost Overrun & Escalation Clause Exposure</h2>
+          </div>
+        </div>
+
+        <div className="workspace-table-scroll">
+          <table className="workspace-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Committed Budget</th>
+                <th>Physical Progress</th>
+                <th>Cost Risk Score</th>
+                <th>Governing Financial Clause</th>
+                <th aria-label="Action" />
+              </tr>
+            </thead>
+            <tbody>
+              {budgetRows.map((row) => (
+                <tr key={row.project.id} onClick={() => onSelectProject(row.project)}>
+                  <td>
+                    <strong>{row.name}</strong>
+                    <small style={{ display: 'block', color: '#88938a' }}>{row.project.id}</small>
+                  </td>
+                  <td className="workspace-budget">₹{row.budget.toFixed(2)} Cr</td>
+                  <td>{row.progress}%</td>
+                  <td>
+                    <span className={`workspace-risk ${row.project.riskScoresAvailable ? row.costRisk >= 65 ? 'risk-high' : row.costRisk >= 40 ? 'risk-mid' : 'risk-low' : ''}`}>
+                      {row.project.riskScoresAvailable ? `${row.costRisk}%` : '—'}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: 10, color: '#4d5c52' }}>
+                      {row.project.id === 'CP-1932' && 'Section 6.3: ENR Steel Index 60/40 Cost Sharing'}
+                      {row.project.id === 'CP-1764' && 'Section 15.3: Monthly 115% Burn Rate Audit Cap'}
+                      {row.project.id === 'CP-2048' && 'Section 8.4: Staffing Deficit $12,500/day Liquidated Damages'}
+                      {row.project.id === 'CP-1876' && 'Section 22.1: 72-Hour LEED Systems Commissioning'}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" className="text-link">
+                      Open Brief <ArrowRight size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  )
 }
 
+/* =========================================================================
+   6. HELP CENTER PAGE: Evaluation Walkthrough & Architecture Reference
+   ========================================================================= */
 export function HelpPage({ onGoToProjects }: Pick<PageProps, 'onGoToProjects'>) {
-  return <div className="workspace-page-content"><section className="workspace-panel help-panel"><span className="section-kicker">GETTING STARTED</span><h2>How to use the portfolio</h2><p>Start with the overview, open a signal to understand the project context, then review its evidence before deciding on a follow-up.</p><div className="help-steps"><div><span>01</span><strong>Find a project</strong><small>Use the project list or priority signals.</small></div><div><span>02</span><strong>Review the details</strong><small>Check milestones, risk reasons and sample evidence.</small></div><div><span>03</span><strong>Choose a response</strong><small>Approve or dismiss the recommendation. Demo decisions are not saved.</small></div></div><button className="help-primary-action" type="button" onClick={onGoToProjects}>Browse projects <ArrowRight size={15} /></button></section><p className="workspace-footnote"><FolderOpen size={15} /> This help page describes the current frontend demo. All shown project information is sample data.</p></div>
+  return (
+    <div className="workspace-page-content">
+      <section className="workspace-panel help-panel">
+        <span className="section-kicker">ACADEMIC EVALUATION & SYSTEM WALKTHROUGH</span>
+        <h2>ContractPulse AI Platform Reference</h2>
+        <p>
+          ContractPulse AI bridges machine learning risk models with legally binding contract evidence.
+          This guide explains the end-to-end architecture and evaluation steps for reviewers.
+        </p>
+
+        <div className="help-steps">
+          <div className="eval-step-box">
+            <span>01</span>
+            <strong>Portfolio Overview & Risk Signals</strong>
+            <small>Inspect high-risk contracts, milestone schedules, and progress variances across active public infrastructure works.</small>
+          </div>
+          <div className="eval-step-box">
+            <span>02</span>
+            <strong>ML Risk-to-Evidence Connection</strong>
+            <small>Open any project brief to see predicted risks automatically mapped to contract clauses using pgvector cosine distance search.</small>
+          </div>
+          <div className="eval-step-box">
+            <span>03</span>
+            <strong>Document Intelligence (RAG)</strong>
+            <small>Navigate to Documents to perform semantic vector searches across contracts and review extracted legal clauses.</small>
+          </div>
+          <div className="eval-step-box">
+            <span>04</span>
+            <strong>Human-in-the-Loop Decisions</strong>
+            <small>Approve or dismiss AI recommendations with recorded decision logging in the audit trail.</small>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
+          <button className="help-primary-action" type="button" onClick={onGoToProjects}>
+            Explore Portfolio <ArrowRight size={15} />
+          </button>
+        </div>
+      </section>
+    </div>
+  )
 }

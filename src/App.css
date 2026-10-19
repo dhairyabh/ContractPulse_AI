@@ -20,7 +20,7 @@
 }
 
 .brand-lockup { display: flex; align-items: center; gap: 10px; padding: 0 11px 28px; }
-.brand-mark { height: 31px; width: 31px; border-radius: 9px; display: grid; place-items: center; color: #173d35; background: #c4e6c9; }
+.brand-mark { height: 31px; width: 31px; border-radius: 9px; display: grid; place-items: center; color: #173d35; background: #c4e6c9; font-weight: 800; font-size: 13.5px; letter-spacing: -0.03em; line-height: 1; user-select: none; }
 .brand-name { color: #f4f6ef; font-weight: 650; font-size: 16px; letter-spacing: 0; }
 .brand-name span { color: #bce2c4; }
 .brand-name sup { color: #d3e5d5; font-size: 8px; margin-left: 4px; letter-spacing: .08em; vertical-align: super; }

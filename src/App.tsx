@@ -386,7 +386,7 @@ function App() {
     <div className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-lockup">
-          <div className="brand-mark"><Activity size={20} strokeWidth={2.5} /></div>
+          <div className="brand-mark">CP</div>
           <div className="brand-name">contract<span>pulse</span><sup>AI</sup></div>
         </div>
 
