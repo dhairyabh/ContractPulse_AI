@@ -207,6 +207,65 @@ export function deleteMilestone(projectId: string, milestoneId: string) {
   })
 }
 
+export type ProjectRiskPredictionPayload = {
+  progressVariance?: number
+  scheduleVariance?: number
+  paymentProgressRatio?: number
+  milestoneDelayDays?: number
+  changeOrderFrequency?: number
+  inspectionFailureRate?: number
+  contractorDelayHistory?: number
+  costVariancePct?: number
+  plannedDurationDays?: number
+  budgetCrores?: number
+  persistRiskScores?: boolean
+}
+
+export type FeatureContribution = {
+  feature: string
+  featureName: string
+  inputValue: number
+  contribution: number
+  scale: string
+  direction: 'increases_risk' | 'decreases_risk' | 'neutral'
+  displayMagnitude: number
+}
+
+export type ModelExplanation = {
+  target: string
+  modelType: string
+  method: string
+  baseValue: number
+  scale: string
+  topDrivers: FeatureContribution[]
+  allDrivers: FeatureContribution[]
+  note: string
+}
+
+export type RiskExplanations = {
+  delayRisk?: ModelExplanation
+  costOverrunRisk?: ModelExplanation
+  warning?: string
+}
+
+export type RiskPredictionResponse = {
+  projectId: string
+  delayRisk: number
+  costOverrunRisk: number
+  dataOrigin: string
+  warning: string
+  featuresUsed: Record<string, number>
+  project: Project
+  explanations?: RiskExplanations
+}
+
+export function predictProjectRisk(projectId: string, payload?: ProjectRiskPredictionPayload) {
+  return request<RiskPredictionResponse>(`/projects/${encodeURIComponent(projectId)}/predict-risk`, {
+    method: 'POST',
+    body: JSON.stringify(payload ?? {}),
+  })
+}
+
 function toApiProject(payload: ProjectPayload) {
   const budgetCrores = Number(payload.budget.replace(/[^\d.]/g, ''))
   if (!Number.isFinite(budgetCrores)) throw new Error('Budget must be a valid number')

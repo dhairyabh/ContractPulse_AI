@@ -2,14 +2,21 @@ package com.contractpulse.api;
 
 import static com.contractpulse.api.ApiModels.MilestoneDto;
 import static com.contractpulse.api.ApiModels.MilestoneRequest;
+import static com.contractpulse.api.ApiModels.MlPredictionResult;
 import static com.contractpulse.api.ApiModels.ProgressRequest;
 import static com.contractpulse.api.ApiModels.ProgressSnapshotDto;
 import static com.contractpulse.api.ApiModels.ProjectDto;
 import static com.contractpulse.api.ApiModels.ProjectRequest;
+import static com.contractpulse.api.ApiModels.ProjectRiskPredictionRequest;
+import static com.contractpulse.api.ApiModels.RiskPredictionResponse;
+import static com.contractpulse.api.ApiModels.StandaloneRiskPredictionRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,9 +32,11 @@ public class ProjectService {
     private static final List<String> MILESTONE_STATUSES = List.of("Not started", "In progress", "Complete");
 
     private final JdbcTemplate jdbc;
+    private final MlRiskService mlRiskService;
 
-    public ProjectService(JdbcTemplate jdbc) {
+    public ProjectService(JdbcTemplate jdbc, MlRiskService mlRiskService) {
         this.jdbc = jdbc;
+        this.mlRiskService = mlRiskService;
     }
 
     public List<ProjectDto> getProjects() {
@@ -207,6 +216,221 @@ public class ProjectService {
         int changed = jdbc.update("DELETE FROM milestones WHERE project_id = ? AND id = ?", projectId, milestoneId);
         if (changed == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Milestone not found");
         return getProject(projectId);
+    }
+
+    @Transactional
+    public RiskPredictionResponse predictProjectRisk(String projectId, ProjectRiskPredictionRequest request) {
+        Map<String, Object> projectRow = findProjectRow(projectId);
+
+        // 1. Map compatible project fields
+        // Budget in crores: matches budget_crores in Crores
+        Double budgetCrores = null;
+        if (request != null && request.budgetCrores() != null) {
+            budgetCrores = request.budgetCrores();
+        } else if (projectRow.get("BUDGET_CRORES") != null) {
+            budgetCrores = ((BigDecimal) projectRow.get("BUDGET_CRORES")).doubleValue();
+        }
+
+        // Progress variance: actual % - planned % (percentage points)
+        Double progressVariance = null;
+        if (request != null && request.progressVariance() != null) {
+            progressVariance = request.progressVariance();
+        } else {
+            List<ProgressSnapshotDto> history = getProgressHistory(projectId);
+            if (!history.isEmpty()) {
+                ProgressSnapshotDto latest = history.get(history.size() - 1);
+                progressVariance = (double) (latest.actual() - latest.planned());
+            }
+        }
+
+        // Milestone delay days: can be specified or derived from next active milestone
+        Integer milestoneDelayDays = null;
+        if (request != null && request.milestoneDelayDays() != null) {
+            milestoneDelayDays = request.milestoneDelayDays();
+        } else {
+            List<MilestoneDto> milestones = getMilestones(projectId);
+            MilestoneDto activeMilestone = milestones.stream()
+                    .filter(m -> !"Complete".equals(m.status()))
+                    .findFirst()
+                    .orElse(milestones.isEmpty() ? null : milestones.get(milestones.size() - 1));
+
+            if (activeMilestone != null) {
+                String targetDateStr = activeMilestone.actualFinishDate() != null
+                        ? activeMilestone.actualFinishDate()
+                        : activeMilestone.forecastFinishDate();
+                if (targetDateStr != null && activeMilestone.plannedFinishDate() != null) {
+                    long delay = ChronoUnit.DAYS.between(
+                            LocalDate.parse(activeMilestone.plannedFinishDate()),
+                            LocalDate.parse(targetDateStr)
+                    );
+                    milestoneDelayDays = (int) Math.max(0, delay);
+                }
+            }
+        }
+
+        // Planned duration days: NOT available in database (database stores finish dates, not project start date).
+        // Must never be silently fabricated or zeroed out.
+        Integer plannedDurationDays = request != null ? request.plannedDurationDays() : null;
+
+        // Schedule variance: In ML training, schedule_variance is DEFINED AS:
+        // (milestone_delay_days / planned_duration_days) * 100  (a PERCENTAGE, not days!).
+        // Schedule variance days (forecast finish - baseline finish) must NOT be mapped as a percentage.
+        Double scheduleVariance = null;
+        if (request != null && request.scheduleVariance() != null) {
+            scheduleVariance = request.scheduleVariance();
+        } else if (milestoneDelayDays != null && plannedDurationDays != null && plannedDurationDays > 0) {
+            scheduleVariance = (milestoneDelayDays / (double) plannedDurationDays) * 100.0;
+        }
+
+        // Operational features: Cannot be inferred from unrelated fields.
+        // Must be explicitly supplied; never silently replaced with zero or fabricated values.
+        Double paymentProgressRatio = request != null ? request.paymentProgressRatio() : null;
+        Double changeOrderFrequency = request != null ? request.changeOrderFrequency() : null;
+        Double inspectionFailureRate = request != null ? request.inspectionFailureRate() : null;
+        Integer contractorDelayHistory = request != null ? request.contractorDelayHistory() : null;
+        Double costVariancePct = request != null ? request.costVariancePct() : null;
+
+        // 2. Validate value bounds of provided operational inputs first
+        if (plannedDurationDays != null && plannedDurationDays <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "planned_duration_days must be greater than 0");
+        }
+        if (budgetCrores != null && budgetCrores <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budget_crores must be greater than 0");
+        }
+        if (inspectionFailureRate != null && (inspectionFailureRate < 0.0 || inspectionFailureRate > 1.0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "inspection_failure_rate must be between 0.0 and 1.0");
+        }
+        if (paymentProgressRatio != null && paymentProgressRatio < 0.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "payment_progress_ratio must be non-negative");
+        }
+        if (changeOrderFrequency != null && changeOrderFrequency < 0.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "change_order_frequency must be non-negative");
+        }
+        if (contractorDelayHistory != null && contractorDelayHistory < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "contractor_delay_history must be non-negative");
+        }
+        if (milestoneDelayDays != null && milestoneDelayDays < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "milestone_delay_days must be non-negative");
+        }
+
+        // 3. Validate all 10 required features are available
+        List<String> missing = new ArrayList<>();
+        if (progressVariance == null) missing.add("progress_variance");
+        if (scheduleVariance == null) missing.add("schedule_variance");
+        if (paymentProgressRatio == null) missing.add("payment_progress_ratio");
+        if (milestoneDelayDays == null) missing.add("milestone_delay_days");
+        if (changeOrderFrequency == null) missing.add("change_order_frequency");
+        if (inspectionFailureRate == null) missing.add("inspection_failure_rate");
+        if (contractorDelayHistory == null) missing.add("contractor_delay_history");
+        if (costVariancePct == null) missing.add("cost_variance_pct");
+        if (plannedDurationDays == null) missing.add("planned_duration_days");
+        if (budgetCrores == null) missing.add("budget_crores");
+
+        if (!missing.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Missing required operational features: " + missing +
+                    ". These operational features cannot be silently fabricated and must be provided to evaluate risk models."
+            );
+        }
+
+        Map<String, Object> featureMap = new LinkedHashMap<>();
+        featureMap.put("progress_variance", progressVariance);
+        featureMap.put("schedule_variance", scheduleVariance);
+        featureMap.put("payment_progress_ratio", paymentProgressRatio);
+        featureMap.put("milestone_delay_days", milestoneDelayDays);
+        featureMap.put("change_order_frequency", changeOrderFrequency);
+        featureMap.put("inspection_failure_rate", inspectionFailureRate);
+        featureMap.put("contractor_delay_history", contractorDelayHistory);
+        featureMap.put("cost_variance_pct", costVariancePct);
+        featureMap.put("planned_duration_days", plannedDurationDays);
+        featureMap.put("budget_crores", budgetCrores);
+
+        // 3. Execute prediction via ML service
+        MlPredictionResult prediction = mlRiskService.predictRisks(featureMap);
+
+        // 4. Persistence: update project risk scores if requested
+        boolean persist = request == null || request.persistRiskScores() == null || Boolean.TRUE.equals(request.persistRiskScores());
+        if (persist) {
+            int roundedDelay = (int) Math.round(prediction.delayRisk());
+            int roundedCost = (int) Math.round(prediction.costOverrunRisk());
+            String newStatus = roundedDelay >= 65 ? "Action needed" : roundedDelay >= 40 ? "Watch closely" : "On track";
+            String newColor = roundedDelay >= 65 ? "coral" : roundedDelay >= 40 ? "gold" : "green";
+
+            jdbc.update("""
+                    UPDATE projects
+                    SET delay_risk = ?, cost_risk = ?, status = ?, color = ?
+                    WHERE id = ?
+                    """, roundedDelay, roundedCost, newStatus, newColor, projectId);
+        }
+
+        return new RiskPredictionResponse(
+                projectId,
+                prediction.delayRisk(),
+                prediction.costOverrunRisk(),
+                prediction.dataOrigin(),
+                prediction.warning(),
+                featureMap,
+                getProject(projectId),
+                prediction.explanations()
+        );
+    }
+
+    public MlPredictionResult predictStandalone(StandaloneRiskPredictionRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Prediction request cannot be empty");
+        }
+        List<String> missing = new ArrayList<>();
+        if (request.progressVariance() == null) missing.add("progress_variance");
+        if (request.scheduleVariance() == null) missing.add("schedule_variance");
+        if (request.paymentProgressRatio() == null) missing.add("payment_progress_ratio");
+        if (request.milestoneDelayDays() == null) missing.add("milestone_delay_days");
+        if (request.changeOrderFrequency() == null) missing.add("change_order_frequency");
+        if (request.inspectionFailureRate() == null) missing.add("inspection_failure_rate");
+        if (request.contractorDelayHistory() == null) missing.add("contractor_delay_history");
+        if (request.costVariancePct() == null) missing.add("cost_variance_pct");
+        if (request.plannedDurationDays() == null) missing.add("planned_duration_days");
+        if (request.budgetCrores() == null) missing.add("budget_crores");
+
+        if (!missing.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing required features: " + missing);
+        }
+
+        if (request.plannedDurationDays() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "planned_duration_days must be greater than 0");
+        }
+        if (request.budgetCrores() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budget_crores must be greater than 0");
+        }
+        if (request.inspectionFailureRate() < 0.0 || request.inspectionFailureRate() > 1.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "inspection_failure_rate must be between 0.0 and 1.0");
+        }
+        if (request.paymentProgressRatio() < 0.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "payment_progress_ratio must be non-negative");
+        }
+        if (request.changeOrderFrequency() < 0.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "change_order_frequency must be non-negative");
+        }
+        if (request.contractorDelayHistory() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "contractor_delay_history must be non-negative");
+        }
+        if (request.milestoneDelayDays() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "milestone_delay_days must be non-negative");
+        }
+
+        Map<String, Object> featureMap = new LinkedHashMap<>();
+        featureMap.put("progress_variance", request.progressVariance());
+        featureMap.put("schedule_variance", request.scheduleVariance());
+        featureMap.put("payment_progress_ratio", request.paymentProgressRatio());
+        featureMap.put("milestone_delay_days", request.milestoneDelayDays());
+        featureMap.put("change_order_frequency", request.changeOrderFrequency());
+        featureMap.put("inspection_failure_rate", request.inspectionFailureRate());
+        featureMap.put("contractor_delay_history", request.contractorDelayHistory());
+        featureMap.put("cost_variance_pct", request.costVariancePct());
+        featureMap.put("planned_duration_days", request.plannedDurationDays());
+        featureMap.put("budget_crores", request.budgetCrores());
+
+        return mlRiskService.predictRisks(featureMap);
     }
 
     private void upsertProgress(String projectId, ProgressRequest request) {

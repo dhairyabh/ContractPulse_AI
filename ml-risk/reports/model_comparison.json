@@ -1,0 +1,805 @@
+{
+  "dataset_origin": [
+    "synthetic"
+  ],
+  "dataset_rows": 2500,
+  "seed": 42,
+  "classification_threshold": 0.5,
+  "warning": "Metrics on synthetic data are pipeline checks only and do not establish real-world performance.",
+  "targets": {
+    "delay_risk": {
+      "positive_rate": 0.4348,
+      "train_rows": 2000,
+      "test_rows": 500,
+      "data_split": {
+        "strategy": "Stratified train_test_split",
+        "train_fraction": 0.8,
+        "test_fraction": 0.2,
+        "random_state": 42,
+        "leakage_prevention": "Cross-validation and feature scaling/imputation fitted strictly on training partition; test partition held out."
+      },
+      "comparison": {
+        "logistic_regression": {
+          "accuracy": 0.76,
+          "precision": 0.7174887892376681,
+          "recall": 0.7373271889400922,
+          "f1": 0.7272727272727273,
+          "brier_score": 0.16140270449555913,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 220,
+            "fp": 63,
+            "fn": 57,
+            "tp": 160,
+            "total": 500
+          },
+          "roc_auc": 0.8420152741365553,
+          "average_precision": 0.823642088716927,
+          "pr_auc": 0.823642088716927,
+          "algorithm": "logistic_regression",
+          "target": "delay_risk",
+          "candidate_artifact": "delay_risk_logistic_regression.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.706859,
+              "std": 0.027958,
+              "values": [
+                0.721127,
+                0.685879,
+                0.668539,
+                0.728863,
+                0.729885
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.818167,
+              "std": 0.021241,
+              "values": [
+                0.828629,
+                0.807827,
+                0.785856,
+                0.830638,
+                0.837885
+              ]
+            },
+            "average_precision": {
+              "mean": 0.787121,
+              "std": 0.033852,
+              "values": [
+                0.797925,
+                0.777084,
+                0.732972,
+                0.811642,
+                0.815983
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.787121,
+              "std": 0.033852,
+              "values": [
+                0.797925,
+                0.777084,
+                0.732972,
+                0.811642,
+                0.815983
+              ]
+            }
+          }
+        },
+        "random_forest": {
+          "accuracy": 0.752,
+          "precision": 0.7203791469194313,
+          "recall": 0.7004608294930875,
+          "f1": 0.7102803738317757,
+          "brier_score": 0.1705009130018586,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 224,
+            "fp": 59,
+            "fn": 65,
+            "tp": 152,
+            "total": 500
+          },
+          "roc_auc": 0.8206673071599551,
+          "average_precision": 0.7879789327669469,
+          "pr_auc": 0.7879789327669469,
+          "algorithm": "random_forest",
+          "target": "delay_risk",
+          "candidate_artifact": "delay_risk_random_forest.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.697563,
+              "std": 0.03074,
+              "values": [
+                0.69341,
+                0.662857,
+                0.674221,
+                0.73494,
+                0.722388
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.800173,
+              "std": 0.028771,
+              "values": [
+                0.799156,
+                0.793968,
+                0.756205,
+                0.822017,
+                0.829519
+              ]
+            },
+            "average_precision": {
+              "mean": 0.767103,
+              "std": 0.049352,
+              "values": [
+                0.767483,
+                0.763175,
+                0.687778,
+                0.808063,
+                0.809019
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.767103,
+              "std": 0.049352,
+              "values": [
+                0.767483,
+                0.763175,
+                0.687778,
+                0.808063,
+                0.809019
+              ]
+            }
+          }
+        },
+        "xgboost": {
+          "accuracy": 0.758,
+          "precision": 0.7376237623762376,
+          "recall": 0.6866359447004609,
+          "f1": 0.711217183770883,
+          "brier_score": 0.16800875961780548,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 230,
+            "fp": 53,
+            "fn": 68,
+            "tp": 149,
+            "total": 500
+          },
+          "roc_auc": 0.8239891876048264,
+          "average_precision": 0.7829090045426903,
+          "pr_auc": 0.7829090045426903,
+          "algorithm": "xgboost",
+          "target": "delay_risk",
+          "candidate_artifact": "delay_risk_xgboost.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.676874,
+              "std": 0.040152,
+              "values": [
+                0.678261,
+                0.672727,
+                0.613095,
+                0.71875,
+                0.701538
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.800946,
+              "std": 0.028564,
+              "values": [
+                0.794146,
+                0.80091,
+                0.758519,
+                0.815482,
+                0.835673
+              ]
+            },
+            "average_precision": {
+              "mean": 0.768038,
+              "std": 0.049837,
+              "values": [
+                0.756658,
+                0.762243,
+                0.693634,
+                0.809212,
+                0.818442
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.768038,
+              "std": 0.049837,
+              "values": [
+                0.756658,
+                0.762243,
+                0.693634,
+                0.809212,
+                0.818442
+              ]
+            }
+          }
+        }
+      },
+      "cross_validation_summary": {
+        "logistic_regression": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.706859,
+            "std": 0.027958,
+            "values": [
+              0.721127,
+              0.685879,
+              0.668539,
+              0.728863,
+              0.729885
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.818167,
+            "std": 0.021241,
+            "values": [
+              0.828629,
+              0.807827,
+              0.785856,
+              0.830638,
+              0.837885
+            ]
+          },
+          "average_precision": {
+            "mean": 0.787121,
+            "std": 0.033852,
+            "values": [
+              0.797925,
+              0.777084,
+              0.732972,
+              0.811642,
+              0.815983
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.787121,
+            "std": 0.033852,
+            "values": [
+              0.797925,
+              0.777084,
+              0.732972,
+              0.811642,
+              0.815983
+            ]
+          }
+        },
+        "random_forest": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.697563,
+            "std": 0.03074,
+            "values": [
+              0.69341,
+              0.662857,
+              0.674221,
+              0.73494,
+              0.722388
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.800173,
+            "std": 0.028771,
+            "values": [
+              0.799156,
+              0.793968,
+              0.756205,
+              0.822017,
+              0.829519
+            ]
+          },
+          "average_precision": {
+            "mean": 0.767103,
+            "std": 0.049352,
+            "values": [
+              0.767483,
+              0.763175,
+              0.687778,
+              0.808063,
+              0.809019
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.767103,
+            "std": 0.049352,
+            "values": [
+              0.767483,
+              0.763175,
+              0.687778,
+              0.808063,
+              0.809019
+            ]
+          }
+        },
+        "xgboost": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.676874,
+            "std": 0.040152,
+            "values": [
+              0.678261,
+              0.672727,
+              0.613095,
+              0.71875,
+              0.701538
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.800946,
+            "std": 0.028564,
+            "values": [
+              0.794146,
+              0.80091,
+              0.758519,
+              0.815482,
+              0.835673
+            ]
+          },
+          "average_precision": {
+            "mean": 0.768038,
+            "std": 0.049837,
+            "values": [
+              0.756658,
+              0.762243,
+              0.693634,
+              0.809212,
+              0.818442
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.768038,
+            "std": 0.049837,
+            "values": [
+              0.756658,
+              0.762243,
+              0.693634,
+              0.809212,
+              0.818442
+            ]
+          }
+        }
+      },
+      "selected_model": "logistic_regression",
+      "model_selection_note": "Selected via held-out test split tuple (f1, roc_auc); documented methodological limitation.",
+      "model_path": "delay_risk_best.joblib",
+      "deployed_artifact_status": "preserved_existing",
+      "candidate_artifacts": {
+        "logistic_regression": "delay_risk_logistic_regression.joblib",
+        "random_forest": "delay_risk_random_forest.joblib",
+        "xgboost": "delay_risk_xgboost.joblib"
+      },
+      "feature_columns": [
+        "progress_variance",
+        "schedule_variance",
+        "payment_progress_ratio",
+        "milestone_delay_days",
+        "change_order_frequency",
+        "inspection_failure_rate",
+        "contractor_delay_history",
+        "cost_variance_pct",
+        "planned_duration_days",
+        "budget_crores"
+      ]
+    },
+    "cost_overrun_risk": {
+      "positive_rate": 0.6904,
+      "train_rows": 2000,
+      "test_rows": 500,
+      "data_split": {
+        "strategy": "Stratified train_test_split",
+        "train_fraction": 0.8,
+        "test_fraction": 0.2,
+        "random_state": 42,
+        "leakage_prevention": "Cross-validation and feature scaling/imputation fitted strictly on training partition; test partition held out."
+      },
+      "comparison": {
+        "logistic_regression": {
+          "accuracy": 0.958,
+          "precision": 0.9939024390243902,
+          "recall": 0.9449275362318841,
+          "f1": 0.9687964338781575,
+          "brier_score": 0.042810740345114555,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 153,
+            "fp": 2,
+            "fn": 19,
+            "tp": 326,
+            "total": 500
+          },
+          "roc_auc": 0.9809256661991584,
+          "average_precision": 0.9930539603859769,
+          "pr_auc": 0.9930539603859769,
+          "algorithm": "logistic_regression",
+          "target": "cost_overrun_risk",
+          "candidate_artifact": "cost_overrun_risk_logistic_regression.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.96217,
+              "std": 0.006741,
+              "values": [
+                0.959707,
+                0.957009,
+                0.960748,
+                0.95941,
+                0.973978
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.977719,
+              "std": 0.007377,
+              "values": [
+                0.975757,
+                0.982089,
+                0.979985,
+                0.96593,
+                0.984835
+              ]
+            },
+            "average_precision": {
+              "mean": 0.991972,
+              "std": 0.002584,
+              "values": [
+                0.991142,
+                0.993229,
+                0.99282,
+                0.987951,
+                0.994719
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.991972,
+              "std": 0.002584,
+              "values": [
+                0.991142,
+                0.993229,
+                0.99282,
+                0.987951,
+                0.994719
+              ]
+            }
+          }
+        },
+        "random_forest": {
+          "accuracy": 0.96,
+          "precision": 0.987987987987988,
+          "recall": 0.9536231884057971,
+          "f1": 0.9705014749262537,
+          "brier_score": 0.03522644889741072,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 151,
+            "fp": 4,
+            "fn": 16,
+            "tp": 329,
+            "total": 500
+          },
+          "roc_auc": 0.9720430107526882,
+          "average_precision": 0.9904628547199369,
+          "pr_auc": 0.9904628547199369,
+          "algorithm": "random_forest",
+          "target": "cost_overrun_risk",
+          "candidate_artifact": "cost_overrun_risk_random_forest.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.966677,
+              "std": 0.00443,
+              "values": [
+                0.96679,
+                0.97026,
+                0.966667,
+                0.95941,
+                0.97026
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.975995,
+              "std": 0.003746,
+              "values": [
+                0.975698,
+                0.980482,
+                0.975953,
+                0.970226,
+                0.977618
+              ]
+            },
+            "average_precision": {
+              "mean": 0.991387,
+              "std": 0.001409,
+              "values": [
+                0.99156,
+                0.992782,
+                0.991307,
+                0.989086,
+                0.992203
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.991387,
+              "std": 0.001409,
+              "values": [
+                0.99156,
+                0.992782,
+                0.991307,
+                0.989086,
+                0.992203
+              ]
+            }
+          }
+        },
+        "xgboost": {
+          "accuracy": 0.96,
+          "precision": 0.9850746268656716,
+          "recall": 0.9565217391304348,
+          "f1": 0.9705882352941176,
+          "brier_score": 0.03423840180039406,
+          "confusion_matrix": {
+            "threshold": 0.5,
+            "tn": 150,
+            "fp": 5,
+            "fn": 15,
+            "tp": 330,
+            "total": 500
+          },
+          "roc_auc": 0.9778214118747077,
+          "average_precision": 0.992197270563558,
+          "pr_auc": 0.992197270563558,
+          "algorithm": "xgboost",
+          "target": "cost_overrun_risk",
+          "candidate_artifact": "cost_overrun_risk_xgboost.joblib",
+          "cross_validation": {
+            "strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "n_splits": 5,
+            "completed_folds": 5,
+            "failed_folds": 0,
+            "fold_errors": [],
+            "f1": {
+              "mean": 0.967151,
+              "std": 0.004742,
+              "values": [
+                0.967033,
+                0.96846,
+                0.968577,
+                0.95941,
+                0.972274
+              ]
+            },
+            "roc_auc": {
+              "mean": 0.972916,
+              "std": 0.002634,
+              "values": [
+                0.969857,
+                0.974492,
+                0.973177,
+                0.970781,
+                0.976274
+              ]
+            },
+            "average_precision": {
+              "mean": 0.989798,
+              "std": 0.001662,
+              "values": [
+                0.989611,
+                0.987416,
+                0.990531,
+                0.989465,
+                0.991965
+              ]
+            },
+            "pr_auc": {
+              "mean": 0.989798,
+              "std": 0.001662,
+              "values": [
+                0.989611,
+                0.987416,
+                0.990531,
+                0.989465,
+                0.991965
+              ]
+            }
+          }
+        }
+      },
+      "cross_validation_summary": {
+        "logistic_regression": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.96217,
+            "std": 0.006741,
+            "values": [
+              0.959707,
+              0.957009,
+              0.960748,
+              0.95941,
+              0.973978
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.977719,
+            "std": 0.007377,
+            "values": [
+              0.975757,
+              0.982089,
+              0.979985,
+              0.96593,
+              0.984835
+            ]
+          },
+          "average_precision": {
+            "mean": 0.991972,
+            "std": 0.002584,
+            "values": [
+              0.991142,
+              0.993229,
+              0.99282,
+              0.987951,
+              0.994719
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.991972,
+            "std": 0.002584,
+            "values": [
+              0.991142,
+              0.993229,
+              0.99282,
+              0.987951,
+              0.994719
+            ]
+          }
+        },
+        "random_forest": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.966677,
+            "std": 0.00443,
+            "values": [
+              0.96679,
+              0.97026,
+              0.966667,
+              0.95941,
+              0.97026
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.975995,
+            "std": 0.003746,
+            "values": [
+              0.975698,
+              0.980482,
+              0.975953,
+              0.970226,
+              0.977618
+            ]
+          },
+          "average_precision": {
+            "mean": 0.991387,
+            "std": 0.001409,
+            "values": [
+              0.99156,
+              0.992782,
+              0.991307,
+              0.989086,
+              0.992203
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.991387,
+            "std": 0.001409,
+            "values": [
+              0.99156,
+              0.992782,
+              0.991307,
+              0.989086,
+              0.992203
+            ]
+          }
+        },
+        "xgboost": {
+          "completed_folds": 5,
+          "failed_folds": 0,
+          "f1": {
+            "mean": 0.967151,
+            "std": 0.004742,
+            "values": [
+              0.967033,
+              0.96846,
+              0.968577,
+              0.95941,
+              0.972274
+            ]
+          },
+          "roc_auc": {
+            "mean": 0.972916,
+            "std": 0.002634,
+            "values": [
+              0.969857,
+              0.974492,
+              0.973177,
+              0.970781,
+              0.976274
+            ]
+          },
+          "average_precision": {
+            "mean": 0.989798,
+            "std": 0.001662,
+            "values": [
+              0.989611,
+              0.987416,
+              0.990531,
+              0.989465,
+              0.991965
+            ]
+          },
+          "pr_auc": {
+            "mean": 0.989798,
+            "std": 0.001662,
+            "values": [
+              0.989611,
+              0.987416,
+              0.990531,
+              0.989465,
+              0.991965
+            ]
+          }
+        }
+      },
+      "selected_model": "xgboost",
+      "model_selection_note": "Selected via held-out test split tuple (f1, roc_auc); documented methodological limitation.",
+      "model_path": "cost_overrun_risk_best.joblib",
+      "deployed_artifact_status": "preserved_existing",
+      "candidate_artifacts": {
+        "logistic_regression": "cost_overrun_risk_logistic_regression.joblib",
+        "random_forest": "cost_overrun_risk_random_forest.joblib",
+        "xgboost": "cost_overrun_risk_xgboost.joblib"
+      },
+      "feature_columns": [
+        "progress_variance",
+        "schedule_variance",
+        "payment_progress_ratio",
+        "milestone_delay_days",
+        "change_order_frequency",
+        "inspection_failure_rate",
+        "contractor_delay_history",
+        "cost_variance_pct",
+        "planned_duration_days",
+        "budget_crores"
+      ]
+    }
+  }
+}

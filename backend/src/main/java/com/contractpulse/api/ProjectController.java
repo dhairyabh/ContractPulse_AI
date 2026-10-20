@@ -6,6 +6,8 @@ import static com.contractpulse.api.ApiModels.ProgressRequest;
 import static com.contractpulse.api.ApiModels.ProgressSnapshotDto;
 import static com.contractpulse.api.ApiModels.ProjectDto;
 import static com.contractpulse.api.ApiModels.ProjectRequest;
+import static com.contractpulse.api.ApiModels.ProjectRiskPredictionRequest;
+import static com.contractpulse.api.ApiModels.RiskPredictionResponse;
 
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -105,5 +107,13 @@ public class ProjectController {
     @DeleteMapping("/{projectId}/milestones/{milestoneId}")
     public ProjectDto deleteMilestone(@PathVariable String projectId, @PathVariable String milestoneId) {
         return service.deleteMilestone(projectId, milestoneId);
+    }
+
+    @PostMapping("/{projectId}/predict-risk")
+    public RiskPredictionResponse predictProjectRisk(
+            @PathVariable String projectId,
+            @RequestBody(required = false) ProjectRiskPredictionRequest request
+    ) {
+        return service.predictProjectRisk(projectId, request);
     }
 }

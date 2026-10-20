@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   Bell,
   BriefcaseBusiness,
@@ -17,8 +18,12 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Info,
   UsersRound,
   Wallet,
   X,
@@ -41,7 +46,10 @@ import {
   getProjects,
   updateMilestone as updateMilestoneApi,
   connectRiskToEvidence,
+  predictProjectRisk,
   type EvidenceItem,
+  type ProjectRiskPredictionPayload,
+  type RiskPredictionResponse,
 } from './api'
 import {
   BudgetPage,
@@ -198,6 +206,452 @@ function AddProjectDialog({
   </section></div>
 }
 
+type ProjectAssessmentRecord = {
+  inputs: {
+    plannedDurationDays: string
+    paymentProgressRatio: string
+    milestoneDelayDays: string
+    changeOrderFrequency: string
+    inspectionFailureRate: string
+    contractorDelayHistory: string
+    costVariancePct: string
+    scheduleVariance: string
+  }
+  result: RiskPredictionResponse
+}
+
+function PredictRiskDialog({
+  project,
+  initialAssessment,
+  onClose,
+  onSuccess,
+}: {
+  project: Project
+  initialAssessment?: ProjectAssessmentRecord
+  onClose: () => void
+  onSuccess: (updated: Project, response: RiskPredictionResponse, inputs: ProjectAssessmentRecord['inputs']) => void
+}) {
+  const features = calculateProjectFeatures(project)
+  const defaultMilestoneDelay = features.milestoneDelays.find((m) => m.delayDays !== null && m.delayDays > 0)?.delayDays ?? 0
+
+  const [plannedDurationDays, setPlannedDurationDays] = useState<string>(
+    initialAssessment?.inputs.plannedDurationDays ?? ''
+  )
+  const [paymentProgressRatio, setPaymentProgressRatio] = useState<string>(
+    initialAssessment?.inputs.paymentProgressRatio ?? ''
+  )
+  const [milestoneDelayDays, setMilestoneDelayDays] = useState<string>(
+    initialAssessment?.inputs.milestoneDelayDays ?? String(defaultMilestoneDelay)
+  )
+  const [changeOrderFrequency, setChangeOrderFrequency] = useState<string>(
+    initialAssessment?.inputs.changeOrderFrequency ?? ''
+  )
+  const [inspectionFailureRate, setInspectionFailureRate] = useState<string>(
+    initialAssessment?.inputs.inspectionFailureRate ?? ''
+  )
+  const [contractorDelayHistory, setContractorDelayHistory] = useState<string>(
+    initialAssessment?.inputs.contractorDelayHistory ?? ''
+  )
+  const [costVariancePct, setCostVariancePct] = useState<string>(
+    initialAssessment?.inputs.costVariancePct ?? ''
+  )
+  const [scheduleVariance, setScheduleVariance] = useState<string>(
+    initialAssessment?.inputs.scheduleVariance ?? ''
+  )
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [result, setResult] = useState<RiskPredictionResponse | null>(
+    initialAssessment?.result ?? null
+  )
+  const [activeExplainTab, setActiveExplainTab] = useState<'delay' | 'cost'>('delay')
+
+  function fillSampleMetrics() {
+    setPlannedDurationDays('540')
+    setPaymentProgressRatio('1.05')
+    setMilestoneDelayDays(String(defaultMilestoneDelay > 0 ? defaultMilestoneDelay : 23))
+    setChangeOrderFrequency('1.2')
+    setInspectionFailureRate('0.10')
+    setContractorDelayHistory('1')
+    setCostVariancePct('4.5')
+    setScheduleVariance('4.26')
+    setErrorMessage(null)
+  }
+
+  function clearMetrics() {
+    setPlannedDurationDays('')
+    setPaymentProgressRatio('')
+    setMilestoneDelayDays('')
+    setChangeOrderFrequency('')
+    setInspectionFailureRate('')
+    setContractorDelayHistory('')
+    setCostVariancePct('')
+    setScheduleVariance('')
+    setErrorMessage(null)
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setIsLoading(true)
+    setErrorMessage(null)
+
+    const payload: ProjectRiskPredictionPayload = {
+      plannedDurationDays: plannedDurationDays.trim() !== '' ? Number(plannedDurationDays) : undefined,
+      paymentProgressRatio: paymentProgressRatio.trim() !== '' ? Number(paymentProgressRatio) : undefined,
+      milestoneDelayDays: milestoneDelayDays.trim() !== '' ? Number(milestoneDelayDays) : undefined,
+      changeOrderFrequency: changeOrderFrequency.trim() !== '' ? Number(changeOrderFrequency) : undefined,
+      inspectionFailureRate: inspectionFailureRate.trim() !== '' ? Number(inspectionFailureRate) : undefined,
+      contractorDelayHistory: contractorDelayHistory.trim() !== '' ? Number(contractorDelayHistory) : undefined,
+      costVariancePct: costVariancePct.trim() !== '' ? Number(costVariancePct) : undefined,
+      scheduleVariance: scheduleVariance.trim() !== '' ? Number(scheduleVariance) : undefined,
+      persistRiskScores: true,
+    }
+
+    const inputStrings = {
+      plannedDurationDays,
+      paymentProgressRatio,
+      milestoneDelayDays,
+      changeOrderFrequency,
+      inspectionFailureRate,
+      contractorDelayHistory,
+      costVariancePct,
+      scheduleVariance,
+    }
+
+    try {
+      const response = await predictProjectRisk(project.id, payload)
+      setResult(response)
+      onSuccess(response.project, response, inputStrings)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Prediction request failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="predict-dialog-backdrop" onClick={onClose}>
+      <section
+        className="predict-dialog-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="predict-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="add-project-heading">
+          <div>
+            <span className="section-kicker">PYTHON ML RISK INFERENCE · XGBOOST & RANDOM FOREST</span>
+            <h2 id="predict-dialog-title">Evaluate Risk Models: {project.name}</h2>
+          </div>
+          <button className="icon-button" type="button" aria-label="Close" onClick={onClose}>
+            <X size={19} />
+          </button>
+        </div>
+
+        <div className="predict-warning-banner" role="alert">
+          <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <strong>Synthetic Model Notice</strong>
+            Prototype prediction trained on synthetic data; not validated for real-world decisions. The models require 10 operational features; operational data is never silently fabricated.
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div className="predict-error-banner" role="alert">
+            <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <strong>Validation / Evaluation Notice:</strong> {errorMessage}
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div className="predict-success-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#27765f', fontWeight: 600, fontSize: 12 }}>
+              <Check size={16} /> ML Prediction Successfully Generated & Persisted
+            </div>
+            <div className="predict-success-cards">
+              <div className="predict-score-card">
+                <strong>{result.delayRisk}%</strong>
+                <small>Delay Risk Likelihood</small>
+              </div>
+              <div className="predict-score-card">
+                <strong>{result.costOverrunRisk}%</strong>
+                <small>Cost Overrun Likelihood</small>
+              </div>
+            </div>
+
+            {/* Model Explainability / Feature Attribution */}
+            {result.explanations ? (
+              <div className="predict-explain-container" data-testid="risk-explanations">
+                <div className="predict-explain-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={14} color="#1f4738" />
+                    <strong style={{ fontSize: 12, color: '#1f4738' }}>Why this risk? (Model Feature Attribution)</strong>
+                  </div>
+                  <span style={{ fontSize: 10, color: '#66796c', background: '#eef4f0', padding: '2px 6px', borderRadius: 4 }}>
+                    Top Drivers by Influence
+                  </span>
+                </div>
+
+                <div className="predict-explain-tabs">
+                  <button
+                    type="button"
+                    className={`predict-explain-tab ${activeExplainTab === 'delay' ? 'active' : ''}`}
+                    onClick={() => setActiveExplainTab('delay')}
+                  >
+                    Delay Drivers (Logistic Regression)
+                  </button>
+                  <button
+                    type="button"
+                    className={`predict-explain-tab ${activeExplainTab === 'cost' ? 'active' : ''}`}
+                    onClick={() => setActiveExplainTab('cost')}
+                  >
+                    Cost Overrun Drivers (XGBoost)
+                  </button>
+                </div>
+
+                {(() => {
+                  const currentExplanation =
+                    activeExplainTab === 'delay'
+                      ? result.explanations?.delayRisk
+                      : result.explanations?.costOverrunRisk
+
+                  if (!currentExplanation || !currentExplanation.topDrivers || currentExplanation.topDrivers.length === 0) {
+                    return (
+                      <div style={{ fontSize: 11, color: '#7a877d', padding: 8, textAlign: 'center' }}>
+                        Risk explanation is currently unavailable for this model.
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div>
+                      <div className="predict-drivers-list">
+                        {currentExplanation.topDrivers.map((driver) => {
+                          const isIncrease = driver.direction === 'increases_risk'
+                          const isDecrease = driver.direction === 'decreases_risk'
+                          return (
+                            <div key={driver.feature} className="predict-driver-card">
+                              <div className="driver-card-top">
+                                <div>
+                                  <span className="driver-name">{driver.featureName}</span>
+                                  <span className="driver-val">
+                                    (Input: {driver.inputValue})
+                                  </span>
+                                </div>
+                                <span
+                                  className={`driver-badge ${isIncrease ? 'increase' : isDecrease ? 'decrease' : 'neutral'}`}
+                                >
+                                  {isIncrease ? (
+                                    <>
+                                      <TrendingUp size={11} /> Increases Risk
+                                    </>
+                                  ) : isDecrease ? (
+                                    <>
+                                      <TrendingDown size={11} /> Decreases Risk
+                                    </>
+                                  ) : (
+                                    'Neutral'
+                                  )}
+                                </span>
+                              </div>
+                              <div className="driver-bar-wrapper">
+                                <div className="driver-bar-track">
+                                  <div
+                                    className={`driver-bar-fill ${isIncrease ? 'increase' : isDecrease ? 'decrease' : 'neutral'}`}
+                                    style={{ width: `${Math.min(100, Math.max(5, driver.displayMagnitude))}%` }}
+                                  />
+                                </div>
+                                <span
+                                  className="driver-magnitude-text"
+                                  title={`Contribution: ${driver.contribution > 0 ? '+' : ''}${driver.contribution} (${driver.scale})`}
+                                >
+                                  {driver.displayMagnitude}% rel.
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="predict-explain-meta">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                          <Info size={11} />
+                          <strong>Method: {currentExplanation.method} ({currentExplanation.scale})</strong>
+                        </div>
+                        <div>{currentExplanation.note}</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: '#7a877d', marginTop: 10, textAlign: 'center' }}>
+                Risk explanation is currently unavailable.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginBottom: 12 }}>
+          <div className="section-kicker" style={{ marginBottom: 6 }}>1. AUTOMATICALLY MAPPED FROM PROJECT RECORD</div>
+          <div className="premapped-grid">
+            <div className="premapped-item">
+              <small>Budget (Crores)</small>
+              <strong>{project.budget}</strong>
+            </div>
+            <div className="premapped-item">
+              <small>Progress Variance</small>
+              <strong>{features.progressVariance > 0 ? '+' : ''}{features.progressVariance} pp</strong>
+            </div>
+            <div className="premapped-item">
+              <small>Active Milestone Delay</small>
+              <strong>{defaultMilestoneDelay} days</strong>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span className="section-kicker">2. REQUIRED OPERATIONAL INPUTS (CANNOT BE INFERRED)</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="date-button" type="button" onClick={fillSampleMetrics}>
+                Fill Demo Metrics
+              </button>
+              <button className="date-button" type="button" onClick={clearMetrics}>
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="operational-inputs-grid">
+            <div className="operational-field">
+              <label>Planned Duration (days) *</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={plannedDurationDays}
+                onChange={(e) => setPlannedDurationDays(e.target.value)}
+                placeholder="e.g. 540"
+              />
+              <span className="field-hint">Total baseline project duration</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Payment-to-Progress Ratio *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={paymentProgressRatio}
+                onChange={(e) => setPaymentProgressRatio(e.target.value)}
+                placeholder="e.g. 1.05"
+              />
+              <span className="field-hint">Payments % ÷ actual progress %</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Milestone Delay (days) *</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={milestoneDelayDays}
+                onChange={(e) => setMilestoneDelayDays(e.target.value)}
+                placeholder="e.g. 23"
+              />
+              <span className="field-hint">Active deliverable delay days</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Schedule Variance (%) *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={scheduleVariance}
+                onChange={(e) => setScheduleVariance(e.target.value)}
+                placeholder="e.g. 4.26"
+              />
+              <span className="field-hint">Milestone delay ÷ planned duration × 100</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Change Order Frequency *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={changeOrderFrequency}
+                onChange={(e) => setChangeOrderFrequency(e.target.value)}
+                placeholder="e.g. 1.2"
+              />
+              <span className="field-hint">Change orders per 30 days</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Inspection Failure Rate *</label>
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                value={inspectionFailureRate}
+                onChange={(e) => setInspectionFailureRate(e.target.value)}
+                placeholder="e.g. 0.10"
+              />
+              <span className="field-hint">Failed ÷ total inspections (0.0 to 1.0)</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Contractor Delay History *</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={contractorDelayHistory}
+                onChange={(e) => setContractorDelayHistory(e.target.value)}
+                placeholder="e.g. 1"
+              />
+              <span className="field-hint">Prior projects delayed count</span>
+            </div>
+
+            <div className="operational-field">
+              <label>Cost Variance (%) *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={costVariancePct}
+                onChange={(e) => setCostVariancePct(e.target.value)}
+                placeholder="e.g. 4.5"
+              />
+              <span className="field-hint">(Actual cost − planned cost) ÷ planned × 100</span>
+            </div>
+          </div>
+
+          <div className="predict-dialog-actions">
+            <button className="secondary-button" type="button" onClick={onClose}>
+              {result ? 'Done' : 'Cancel'}
+            </button>
+            <button className="approve-button" type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <RefreshCw size={14} className="spin" /> Evaluating ML Models...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} /> Run Prediction
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
 function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -215,15 +669,13 @@ function App() {
   const [addProjectOpen, setAddProjectOpen] = useState(false)
   const [progressDialogOpen, setProgressDialogOpen] = useState(false)
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false)
+  const [predictRiskOpen, setPredictRiskOpen] = useState(false)
+  const [projectAssessments, setProjectAssessments] = useState<Record<string, ProjectAssessmentRecord>>({})
 
   // ML Evidence state
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([])
   const [evidenceIsLive, setEvidenceIsLive] = useState(false)
   const [loadingEvidence, setLoadingEvidence] = useState(false)
-
-  useEffect(() => {
-    void loadProjects()
-  }, [])
 
   async function loadProjects() {
     try {
@@ -237,6 +689,10 @@ function App() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    void loadProjects()
+  }, [])
 
   // Retrieve evidence when project or selected factor changes
   useEffect(() => {
@@ -687,8 +1143,20 @@ function App() {
                 <span className={`status-pill status-${selectedProject.color}`}><i />{selectedProject.status}</span>
                 <p>Cost overrun risk <strong>{selectedProject.riskScoresAvailable ? `${selectedProject.costRisk}%` : 'Not scored'}</strong></p>
                 <p>Contractor <strong>{selectedProject.contractor}</strong></p>
-                <small>Connected to pgvector evidence store</small>
+                <button
+                  className="filter-button"
+                  style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', background: '#eef5f0', borderColor: '#bcd8c4', color: '#1f4e38', fontWeight: 600 }}
+                  type="button"
+                  onClick={() => setPredictRiskOpen(true)}
+                >
+                  <Sparkles size={13} /> Run ML Risk Assessment
+                </button>
               </div>
+            </div>
+
+            <div style={{ margin: '10px 0 14px', padding: '8px 11px', background: '#fff9ed', border: '1px solid #f2dbaf', borderRadius: 6, fontSize: '9px', color: '#875814', display: 'flex', gap: 7, alignItems: 'center', lineHeight: 1.4 }}>
+              <ShieldAlert size={14} style={{ flexShrink: 0 }} />
+              <span><strong>Prototype Model:</strong> Trained on synthetic data; not validated for real-world decisions. Operational features are strictly verified.</span>
             </div>
 
             <div className="drawer-section">
@@ -884,6 +1352,24 @@ function App() {
       {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} onSubmit={addProject} />}
       {progressDialogOpen && <ProgressUpdateDialog onClose={() => setProgressDialogOpen(false)} onSubmit={updateProjectProgress} />}
       {milestoneDialogOpen && <AddMilestoneDialog onClose={() => setMilestoneDialogOpen(false)} onSubmit={addMilestone} />}
+      {predictRiskOpen && selectedProject && (
+        <PredictRiskDialog
+          project={selectedProject}
+          initialAssessment={projectAssessments[selectedProject.id]}
+          onClose={() => setPredictRiskOpen(false)}
+          onSuccess={(updatedProject, response, inputs) => {
+            setProjects((current) => current.map((item) => (item.id === updatedProject.id ? updatedProject : item)))
+            setSelectedProject(updatedProject)
+            setProjectAssessments((current) => ({
+              ...current,
+              [updatedProject.id]: {
+                inputs,
+                result: response,
+              },
+            }))
+          }}
+        />
+      )}
     </div>
   )
 }
