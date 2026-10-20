@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -51,6 +51,7 @@ import {
   ProjectsPage,
   RiskSignalsPage,
 } from './WorkspacePages'
+import { INITIAL_ORGANIZATIONS, type Organization } from './organizations'
 import './App.css'
 
 const projectRiskFactors: Record<string, { rank: string; title: string; detail: string; impact: string }[]> = {
@@ -71,16 +72,35 @@ const projectRiskFactors: Record<string, { rank: string; title: string; detail: 
     { rank: '01', title: 'Hydrostatic pressure testing', detail: 'Continuous 4-hour 150 psi pressure endurance tolerance validation', impact: '+26%' },
     { rank: '02', title: 'Budget burn rate ahead of plan', detail: 'Monthly expenditure exceeded 115% baseline milestone trigger', impact: '+21%' },
   ],
+  'MT-4010': [
+    { rank: '01', title: 'TBM cutterhead maintenance lag', detail: 'Wear in hard basalt geology requiring 14 additional maintenance shifts', impact: '+28%' },
+    { rank: '02', title: 'Ground settlement in historic zone', detail: 'Surface vibration threshold approaching municipal safety limit', impact: '+22%' },
+  ],
+  'MT-4022': [
+    { rank: '01', title: 'Concourse steel fabrication delivery', detail: 'Structural space truss shipments delayed at coastal port', impact: '+16%' },
+  ],
+  'MT-4035': [
+    { rank: '01', title: '25kV Substation equipment transit', detail: 'Gas-insulated switchgear import transit logistics lag', impact: '+24%' },
+  ],
+  'AE-5102': [
+    { rank: '01', title: 'Heavy transformer transport permits', detail: 'Specialized 180-tonne multi-axle bridge load permits pending approval', impact: '+32%' },
+    { rank: '02', title: 'Interconnect right-of-way', detail: 'Transmission corridor statutory approvals delayed by 3 weeks', impact: '+23%' },
+  ],
+  'AE-5118': [
+    { rank: '01', title: 'High-wind tower tensioning', detail: 'Seasonal gust velocities limit aerial conductor pulling windows', impact: '+14%' },
+  ],
+  'AE-5140': [
+    { rank: '01', title: 'Offshore wave break tidal surge', detail: 'Tidal window permits suspension of marine jet-trenching', impact: '+35%' },
+    { rank: '02', title: 'Marine cable vessel availability', detail: 'Specialized cable-laying ship scheduled 18 days late', impact: '+26%' },
+  ],
+  'NH-6201': [
+    { rank: '01', title: 'Bitumen supply bottleneck', detail: 'Refinery maintenance reduced bulk bitumen supply allocations by 25%', impact: '+22%' },
+  ],
+  'NH-6234': [
+    { rank: '01', title: 'River flood current velocity', detail: 'Monsoon discharge rate delayed deep caisson foundation concretization', impact: '+34%' },
+    { rank: '02', title: 'Launching gantry load testing', detail: 'Safety inspection certification pending state engineering board review', impact: '+21%' },
+  ],
 }
-
-const navigation = [
-  { label: 'Overview', icon: LayoutDashboard },
-  { label: 'Projects', icon: BriefcaseBusiness, count: '4' },
-  { label: 'Risk signals', icon: Activity, count: '3' },
-  { label: 'Documents', icon: FileSearch },
-  { label: 'Contractors', icon: UsersRound },
-  { label: 'Budget & spend', icon: Wallet },
-]
 
 const currentDate = new Date().toISOString().slice(0, 10)
 
@@ -198,8 +218,80 @@ function AddProjectDialog({
   </section></div>
 }
 
+function CreateOrgDialog({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void
+  onSubmit: (org: { name: string; category: string; code: string }) => void
+}) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    const name = String(data.get('name')).trim()
+    const category = String(data.get('category')).trim()
+    const code = String(data.get('code')).trim().toUpperCase().slice(0, 3)
+    if (!name || !code) return
+    onSubmit({ name, category, code })
+  }
+
+  return (
+    <div className="dialog-backdrop" onClick={onClose}>
+      <section
+        className="add-project-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-org-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="add-project-heading">
+          <div>
+            <span className="section-kicker">MULTI-TENANT WORKSPACE</span>
+            <h2 id="create-org-title">Create new organization</h2>
+          </div>
+          <button className="icon-button" type="button" aria-label="Close dialog" onClick={onClose}>
+            <X size={19} />
+          </button>
+        </div>
+        <p className="form-demo-note">Add a new agency or enterprise client workspace to manage isolated infrastructure contracts.</p>
+        <form className="add-project-form" onSubmit={handleSubmit}>
+          <label>
+            Organization name
+            <input name="name" required placeholder="e.g. State Port & Harbor Commission" />
+          </label>
+          <div className="form-two-columns">
+            <label>
+              Portfolio sector / category
+              <input name="category" required placeholder="e.g. Maritime & Ports" />
+            </label>
+            <label>
+              Workspace code (2-3 letters)
+              <input name="code" required maxLength={3} placeholder="e.g. PH" />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
+            <button className="approve-button" type="submit"><Plus size={15} /> Create workspace</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
 function App() {
-  const [projects, setProjects] = useState<Project[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>(INITIAL_ORGANIZATIONS)
+  const [currentOrgId, setCurrentOrgId] = useState<string>('org-northstar')
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [createOrgOpen, setCreateOrgOpen] = useState(false)
+  const switcherRef = useRef<HTMLDivElement>(null)
+
+  const currentOrg = useMemo(
+    () => organizations.find((org) => org.id === currentOrgId) || organizations[0],
+    [organizations, currentOrgId]
+  )
+  const projects = currentOrg.projects
+
   const [isLoading, setIsLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
   const [activePage, setActivePage] = useState('Overview')
@@ -222,6 +314,18 @@ function App() {
   const [loadingEvidence, setLoadingEvidence] = useState(false)
 
   useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (switcherRef.current && !switcherRef.current.contains(event.target as Node)) {
+        setSwitcherOpen(false)
+      }
+    }
+    if (switcherOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [switcherOpen])
+
+  useEffect(() => {
     void loadProjects()
   }, [])
 
@@ -229,7 +333,11 @@ function App() {
     try {
       setIsLoading(true)
       const data = await getProjects()
-      setProjects(data)
+      if (Array.isArray(data) && data.length > 0) {
+        setOrganizations((prev) =>
+          prev.map((org) => (org.id === 'org-northstar' ? { ...org, projects: data } : org))
+        )
+      }
       setApiError(null)
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Unable to connect to Spring Boot API')
@@ -269,8 +377,46 @@ function App() {
 
   async function addProject(projectDraft: ProjectDraft) {
     try {
-      const created = await createProjectApi(projectDraft)
-      setProjects((current) => [...current, created])
+      let created: Project
+      if (currentOrg.id === 'org-northstar') {
+        created = await createProjectApi(projectDraft)
+      } else {
+        const randomNum = Math.floor(1000 + Math.random() * 9000)
+        created = {
+          id: `${currentOrg.code}-${randomNum}`,
+          name: projectDraft.name,
+          agency: projectDraft.agency,
+          contractor: projectDraft.contractor,
+          budget: projectDraft.budget,
+          progress: projectDraft.progress,
+          plannedProgress: projectDraft.plannedProgress,
+          progressAsOfDate: currentDate,
+          progressHistory: [{ date: currentDate, planned: projectDraft.plannedProgress, actual: projectDraft.progress }],
+          baselineFinishDate: projectDraft.baselineFinishDate,
+          forecastFinishDate: projectDraft.forecastFinishDate,
+          delayRisk: Math.floor(25 + Math.random() * 55),
+          costRisk: Math.floor(20 + Math.random() * 50),
+          riskScoresAvailable: true,
+          status: projectDraft.progress >= projectDraft.plannedProgress ? 'On track' : 'Watch closely',
+          color: projectDraft.progress >= projectDraft.plannedProgress ? 'green' : 'gold',
+          initials: projectDraft.name.slice(0, 2).toUpperCase(),
+          milestone: projectDraft.milestone,
+          due: projectDraft.milestoneDueDate,
+          milestones: [
+            {
+              id: `${currentOrg.code}-${randomNum}-M1`,
+              name: projectDraft.milestone,
+              plannedFinishDate: projectDraft.milestoneDueDate,
+              forecastFinishDate: projectDraft.milestoneDueDate,
+              actualFinishDate: null,
+              status: 'In progress',
+            },
+          ],
+        }
+      }
+      setOrganizations((current) =>
+        current.map((org) => (org.id === currentOrg.id ? { ...org, projects: [...org.projects, created] } : org))
+      )
       setSelectedProject(created)
       setAddProjectOpen(false)
       setApiError(null)
@@ -282,8 +428,24 @@ function App() {
   async function updateProjectProgress(snapshot: ProgressDraft) {
     if (!selectedProject) return
     try {
-      const updated = await createProgressSnapshot(selectedProject.id, snapshot)
-      setProjects((current) => current.map((item) => item.id === updated.id ? updated : item))
+      let updated: Project
+      if (currentOrg.id === 'org-northstar') {
+        updated = await createProgressSnapshot(selectedProject.id, snapshot)
+      } else {
+        updated = {
+          ...selectedProject,
+          progress: snapshot.actual,
+          plannedProgress: snapshot.planned,
+          progressHistory: [...selectedProject.progressHistory, { date: snapshot.date, planned: snapshot.planned, actual: snapshot.actual }],
+        }
+      }
+      setOrganizations((current) =>
+        current.map((org) =>
+          org.id === currentOrg.id
+            ? { ...org, projects: org.projects.map((item) => (item.id === updated.id ? updated : item)) }
+            : org
+        )
+      )
       setSelectedProject(updated)
       setProgressDialogOpen(false)
       setApiError(null)
@@ -295,14 +457,36 @@ function App() {
   async function addMilestone(milestoneDraft: MilestoneDraft) {
     if (!selectedProject) return
     try {
-      const updated = await createMilestoneApi(selectedProject.id, {
-        name: milestoneDraft.name,
-        plannedFinishDate: milestoneDraft.plannedFinishDate,
-        forecastFinishDate: milestoneDraft.forecastFinishDate,
-        actualFinishDate: null,
-        status: 'Not started',
-      })
-      setProjects((current) => current.map((item) => item.id === updated.id ? updated : item))
+      let updated: Project
+      if (currentOrg.id === 'org-northstar') {
+        updated = await createMilestoneApi(selectedProject.id, {
+          name: milestoneDraft.name,
+          plannedFinishDate: milestoneDraft.plannedFinishDate,
+          forecastFinishDate: milestoneDraft.forecastFinishDate,
+          actualFinishDate: null,
+          status: 'Not started',
+        })
+      } else {
+        const newMilestone = {
+          id: `${selectedProject.id}-M${selectedProject.milestones.length + 1}`,
+          name: milestoneDraft.name,
+          plannedFinishDate: milestoneDraft.plannedFinishDate,
+          forecastFinishDate: milestoneDraft.forecastFinishDate,
+          actualFinishDate: null,
+          status: 'Not started' as const,
+        }
+        updated = {
+          ...selectedProject,
+          milestones: [...selectedProject.milestones, newMilestone],
+        }
+      }
+      setOrganizations((current) =>
+        current.map((org) =>
+          org.id === currentOrg.id
+            ? { ...org, projects: org.projects.map((item) => (item.id === updated.id ? updated : item)) }
+            : org
+        )
+      )
       setSelectedProject(updated)
       setMilestoneDialogOpen(false)
       setApiError(null)
@@ -317,14 +501,32 @@ function App() {
     if (!milestone) return
 
     try {
-      const updated = await updateMilestoneApi(selectedProject.id, milestoneId, {
-        name: milestone.name,
-        plannedFinishDate: milestone.plannedFinishDate,
-        forecastFinishDate: milestone.forecastFinishDate,
-        actualFinishDate: status === 'Complete' ? currentDate : null,
-        status,
-      })
-      setProjects((current) => current.map((item) => item.id === updated.id ? updated : item))
+      let updated: Project
+      if (currentOrg.id === 'org-northstar') {
+        updated = await updateMilestoneApi(selectedProject.id, milestoneId, {
+          name: milestone.name,
+          plannedFinishDate: milestone.plannedFinishDate,
+          forecastFinishDate: milestone.forecastFinishDate,
+          actualFinishDate: status === 'Complete' ? currentDate : null,
+          status,
+        })
+      } else {
+        updated = {
+          ...selectedProject,
+          milestones: selectedProject.milestones.map((m) =>
+            m.id === milestoneId
+              ? { ...m, status, actualFinishDate: status === 'Complete' ? currentDate : null }
+              : m
+          ),
+        }
+      }
+      setOrganizations((current) =>
+        current.map((org) =>
+          org.id === currentOrg.id
+            ? { ...org, projects: org.projects.map((item) => (item.id === updated.id ? updated : item)) }
+            : org
+        )
+      )
       setSelectedProject(updated)
       setApiError(null)
     } catch (error) {
@@ -335,13 +537,44 @@ function App() {
   async function deleteProject() {
     if (!selectedProject) return
     try {
-      await deleteProjectApi(selectedProject.id)
-      setProjects((current) => current.filter((item) => item.id !== selectedProject.id))
+      if (currentOrg.id === 'org-northstar') {
+        await deleteProjectApi(selectedProject.id)
+      }
+      setOrganizations((current) =>
+        current.map((org) =>
+          org.id === currentOrg.id
+            ? { ...org, projects: org.projects.filter((item) => item.id !== selectedProject.id) }
+            : org
+        )
+      )
       setSelectedProject(null)
       setApiError(null)
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Failed to delete project')
     }
+  }
+
+  function handleCreateOrganization(newOrg: { name: string; category: string; code: string }) {
+    const palette = [
+      { bg: '#3a4e58', color: '#cbe7f2' },
+      { bg: '#4e3b58', color: '#f0cbf2' },
+      { bg: '#58493b', color: '#f2e2cb' },
+      { bg: '#3b5849', color: '#cbf2db' },
+    ]
+    const chosen = palette[organizations.length % palette.length]
+    const createdOrg: Organization = {
+      id: `org-${Date.now()}`,
+      name: newOrg.name,
+      code: newOrg.code,
+      category: newOrg.category,
+      avatarBg: chosen.bg,
+      avatarColor: chosen.color,
+      projects: [],
+    }
+    setOrganizations((prev) => [...prev, createdOrg])
+    setCurrentOrgId(createdOrg.id)
+    setSelectedProject(null)
+    setCreateOrgOpen(false)
   }
 
   const visibleProjects = useMemo(
@@ -376,7 +609,21 @@ function App() {
   const latestPortfolioSnapshot = portfolioHistory[portfolioHistory.length - 1]
   const attentionCount = projects.filter((project) => project.riskScoresAvailable && project.delayRisk >= 65).length
   const totalBudget = projects.reduce((sum, project) => sum + Number(project.budget.replace(/[₹\sCr,]/g, '')), 0)
-  const projectById = new Map(projects.map((project) => [project.id, project]))
+  const highestRiskProject = useMemo(() => {
+    return [...projects].sort((a, b) => (b.delayRisk || 0) - (a.delayRisk || 0))[0] || null
+  }, [projects])
+
+  const navigation = useMemo(
+    () => [
+      { label: 'Overview', icon: LayoutDashboard },
+      { label: 'Projects', icon: BriefcaseBusiness, count: String(projects.length) },
+      { label: 'Risk signals', icon: Activity, count: String(attentionCount) },
+      { label: 'Documents', icon: FileSearch },
+      { label: 'Contractors', icon: UsersRound },
+      { label: 'Budget & spend', icon: Wallet },
+    ],
+    [projects.length, attentionCount]
+  )
 
   const factorsForSelected = selectedProject
     ? projectRiskFactors[selectedProject.id] || projectRiskFactors['CP-2048']
@@ -390,11 +637,71 @@ function App() {
           <div className="brand-name">contract<span>pulse</span></div>
         </div>
 
-        <button className="workspace-switcher" type="button">
-          <span className="workspace-avatar">NY</span>
-          <span className="workspace-copy"><strong>Northstar Group</strong><small>Public infrastructure</small></span>
-          <ChevronDown size={15} />
-        </button>
+        <div className="workspace-switcher-wrap" ref={switcherRef}>
+          <button
+            className={`workspace-switcher ${switcherOpen ? 'switcher-open' : ''}`}
+            type="button"
+            onClick={() => setSwitcherOpen(!switcherOpen)}
+            aria-expanded={switcherOpen}
+            aria-haspopup="listbox"
+          >
+            <span className="workspace-avatar" style={{ background: currentOrg.avatarBg, color: currentOrg.avatarColor }}>
+              {currentOrg.code}
+            </span>
+            <span className="workspace-copy">
+              <strong>{currentOrg.name}</strong>
+              <small>{currentOrg.category}</small>
+            </span>
+            <ChevronDown size={15} className={`switcher-chevron ${switcherOpen ? 'rotate-chevron' : ''}`} />
+          </button>
+
+          {switcherOpen && (
+            <div className="workspace-popover" role="listbox">
+              <div className="workspace-popover-header">
+                <span>ORGANIZATIONS ({organizations.length})</span>
+                <small>Switch portfolio</small>
+              </div>
+              <div className="workspace-popover-list">
+                {organizations.map((org) => {
+                  const isSelected = org.id === currentOrg.id
+                  return (
+                    <button
+                      key={org.id}
+                      type="button"
+                      className={`workspace-option ${isSelected ? 'workspace-option-active' : ''}`}
+                      onClick={() => {
+                        setCurrentOrgId(org.id)
+                        setSelectedProject(null)
+                        setSwitcherOpen(false)
+                      }}
+                    >
+                      <span className="workspace-avatar" style={{ background: org.avatarBg, color: org.avatarColor }}>
+                        {org.code}
+                      </span>
+                      <div className="workspace-option-info">
+                        <strong>{org.name}</strong>
+                        <small>{org.category} · {org.projects.length} contracts</small>
+                      </div>
+                      {isSelected && <Check size={14} className="workspace-option-check" />}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="workspace-popover-footer">
+                <button
+                  type="button"
+                  className="workspace-create-button"
+                  onClick={() => {
+                    setSwitcherOpen(false)
+                    setCreateOrgOpen(true)
+                  }}
+                >
+                  <Plus size={13} /> Add new organization
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="nav-heading">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
@@ -428,7 +735,7 @@ function App() {
       <main className="main-area">
         <header className="topbar">
           <button className="icon-button mobile-menu" type="button" aria-label="Open navigation" onClick={() => setMobileNavOpen(!mobileNavOpen)}><Menu size={19} /></button>
-          <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{activePage}</strong></div>
+          <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><span>{currentOrg.name}</span><span className="crumb-slash">/</span><strong>{activePage}</strong></div>
           <div className="topbar-actions">
             <label className={`search-box ${searchOpen ? 'search-open' : ''}`} onClick={() => setSearchOpen(true)}>
               <Search size={16} />
@@ -486,19 +793,27 @@ function App() {
           {activePage === 'Overview' ? (
             <>
               <section className="metrics-grid" aria-label="Portfolio summary">
-                <article className="metric-card"><div className="metric-top"><span>Projects</span><span className="metric-icon metric-icon-green"><BriefcaseBusiness size={16} /></span></div><div className="metric-value">{projects.length || 4}</div><div className="metric-foot"><span>Active portfolio</span><span className="metric-trend">Spring Boot API</span></div></article>
-                <article className="metric-card"><div className="metric-top"><span>High schedule risk</span><span className="metric-icon metric-icon-red"><Activity size={16} /></span></div><div className="metric-value">{(attentionCount || 3).toString().padStart(2, '0')}</div><div className="metric-foot"><span>Delay risk ≥ 65%</span><span className="metric-trend">Action needed</span></div></article>
-                <article className="metric-card"><div className="metric-top"><span>Committed budget</span><span className="metric-icon metric-icon-blue"><Wallet size={16} /></span></div><div className="metric-value">₹{(totalBudget || 382.8).toFixed(1)}<span className="metric-unit">Cr</span></div><div className="metric-foot"><span>Visible contracts</span><span className="metric-trend">Total allocated</span></div></article>
-                <article className="metric-card"><div className="metric-top"><span>Milestones</span><span className="metric-icon metric-icon-gold"><Clock3 size={16} /></span></div><div className="metric-value">{projects.reduce((sum, project) => sum + project.milestones.length, 0) || 12}</div><div className="metric-foot"><span>Tracked deliverables</span><span className="metric-trend">Timeline sync</span></div></article>
+                <article className="metric-card"><div className="metric-top"><span>Projects</span><span className="metric-icon metric-icon-green"><BriefcaseBusiness size={16} /></span></div><div className="metric-value">{projects.length}</div><div className="metric-foot"><span>Active portfolio</span><span className="metric-trend">{currentOrg.code} Division</span></div></article>
+                <article className="metric-card"><div className="metric-top"><span>High schedule risk</span><span className="metric-icon metric-icon-red"><Activity size={16} /></span></div><div className="metric-value">{attentionCount.toString().padStart(2, '0')}</div><div className="metric-foot"><span>Delay risk ≥ 65%</span><span className="metric-trend">{attentionCount > 0 ? 'Action needed' : 'On schedule'}</span></div></article>
+                <article className="metric-card"><div className="metric-top"><span>Committed budget</span><span className="metric-icon metric-icon-blue"><Wallet size={16} /></span></div><div className="metric-value">₹{totalBudget.toFixed(1)}<span className="metric-unit">Cr</span></div><div className="metric-foot"><span>Visible contracts</span><span className="metric-trend">Total allocated</span></div></article>
+                <article className="metric-card"><div className="metric-top"><span>Milestones</span><span className="metric-icon metric-icon-gold"><Clock3 size={16} /></span></div><div className="metric-value">{projects.reduce((sum, project) => sum + project.milestones.length, 0)}</div><div className="metric-foot"><span>Tracked deliverables</span><span className="metric-trend">Timeline sync</span></div></article>
               </section>
 
               <section className="insight-strip">
                 <div className="insight-icon"><Sparkles size={17} /></div>
                 <p>
                   <strong>Portfolio insight</strong>
-                  <span>3 projects show early signals of schedule slippage. Contractual delay notice required to mitigate damages.</span>
+                  <span>
+                    {attentionCount > 0
+                      ? `${attentionCount} contract${attentionCount > 1 ? 's show' : ' shows'} early signals of schedule slippage in ${currentOrg.name}. Contractual delay notice recommended to mitigate damages.`
+                      : `All active contracts under ${currentOrg.name} are progressing within expected schedule and budget baselines.`}
+                  </span>
                 </p>
-                {projectById.get('CP-2048') && <button type="button" onClick={() => setSelectedProject(projectById.get('CP-2048') ?? null)}>Open brief <ArrowRight size={15} /></button>}
+                {highestRiskProject && (
+                  <button type="button" onClick={() => setSelectedProject(highestRiskProject)}>
+                    Open brief <ArrowRight size={15} />
+                  </button>
+                )}
               </section>
 
               <section className="middle-grid">
@@ -542,23 +857,25 @@ function App() {
                   <div className="panel-heading">
                     <div>
                       <div className="section-kicker">NEEDS YOUR ATTENTION</div>
-                      <h2>Priority signals <span className="heading-count">03</span></h2>
+                      <h2>Priority signals <span className="heading-count">{String(projects.filter((p) => p.riskScoresAvailable).slice(0, 3).length).padStart(2, '0')}</span></h2>
                     </div>
                     <button className="text-link" type="button" onClick={() => setActivePage('Risk signals')}>View all <ArrowRight size={14} /></button>
                   </div>
                   <div className="signal-list">
-                    {[
-                      { project: projectById.get('CP-2048'), title: 'Permit review is holding up foundation work' },
-                      { project: projectById.get('CP-1932'), title: 'Material costs are trending above estimate' },
-                      { project: projectById.get('CP-1764'), title: 'Spend is ahead of completed work' },
-                    ].filter((signal) => signal.project?.riskScoresAvailable).map(({ project, title }) => project && (
-                      <button className="signal-row" key={project.id} type="button" onClick={() => { setSelectedProject(project); setSelectedFactorIndex(0) }}>
-                        <span className={`signal-severity ${project.delayRisk >= 65 ? 'severity-high' : 'severity-medium'}`} />
-                        <span className="signal-copy"><strong>{title}</strong><small>{project.name} <i>·</i> {project.status}</small></span>
-                        <span className={`signal-score ${project.delayRisk >= 65 ? '' : 'score-medium'}`}>{project.delayRisk}<span>%</span></span>
-                        <ArrowRight className="signal-arrow" size={15} />
-                      </button>
-                    ))}
+                    {projects.filter((p) => p.riskScoresAvailable).slice(0, 3).map((project) => {
+                      const topFactor = (projectRiskFactors[project.id] || [])[0]?.title || `${project.milestone} milestone schedule risk`
+                      return (
+                        <button className="signal-row" key={project.id} type="button" onClick={() => { setSelectedProject(project); setSelectedFactorIndex(0) }}>
+                          <span className={`signal-severity ${project.delayRisk >= 65 ? 'severity-high' : 'severity-medium'}`} />
+                          <span className="signal-copy"><strong>{topFactor}</strong><small>{project.name} <i>·</i> {project.status}</small></span>
+                          <span className={`signal-score ${project.delayRisk >= 65 ? '' : 'score-medium'}`}>{project.delayRisk}<span>%</span></span>
+                          <ArrowRight className="signal-arrow" size={15} />
+                        </button>
+                      )
+                    })}
+                    {projects.filter((p) => p.riskScoresAvailable).length === 0 && (
+                      <div className="empty-results" style={{ padding: '20px 0' }}>No active risk signals for this portfolio.</div>
+                    )}
                   </div>
                   <div className="signal-footer"><ShieldCheck size={14} /><span>Signals verified with legal contract evidence</span></div>
                 </article>
@@ -884,6 +1201,7 @@ function App() {
       {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} onSubmit={addProject} />}
       {progressDialogOpen && <ProgressUpdateDialog onClose={() => setProgressDialogOpen(false)} onSubmit={updateProjectProgress} />}
       {milestoneDialogOpen && <AddMilestoneDialog onClose={() => setMilestoneDialogOpen(false)} onSubmit={addMilestone} />}
+      {createOrgOpen && <CreateOrgDialog onClose={() => setCreateOrgOpen(false)} onSubmit={handleCreateOrganization} />}
     </div>
   )
 }

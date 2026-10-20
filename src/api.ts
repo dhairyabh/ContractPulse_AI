@@ -131,6 +131,56 @@ export const FALLBACK_EVIDENCE: Record<string, EvidenceItem[]> = {
       connection_rationale: 'The model flagged a 47% budget burn risk. Section 15.3 establishes expenditure audit triggers.',
     },
   ],
+  'MT-4010': [
+    {
+      clause_id: 8,
+      project_id: 'MT-4010',
+      document_id: 'DOC-MT3-001',
+      document_name: 'Metro Line 3 - Tunneling Engineering Standards.pdf',
+      section_title: 'Section 11.4: Ground Settlement & Geotechnical Indemnity',
+      page_number: 38,
+      clause_text: 'Surface subsidence above the twin TBM alignments must remain strictly under 8mm. Any deviation exceeding 10mm mandates immediate grouting injection and cessation of forward cutting.',
+      similarity_score: 0.92,
+      connection_rationale: 'Connected to geological fissure risk. Section 11.4 enforces ground settlement and vibration monitoring compliance.',
+    },
+    {
+      clause_id: 9,
+      project_id: 'MT-4010',
+      document_id: 'DOC-MT3-002',
+      document_name: 'Metro Line 3 - Mechanical Spares & Maintenance Quotas.pdf',
+      section_title: 'Section 9.2: TBM Cutterhead Spares & Maintenance Shifting',
+      page_number: 16,
+      clause_text: 'The contractor shall store at least 2 complete sets of heavy disc cutters on site. Routine cutterhead inspection must occur every 120 meters of bored tunnel advance.',
+      similarity_score: 0.89,
+      connection_rationale: 'Connected to TBM cutterhead maintenance lag. Section 9.2 controls spare parts availability requirements.',
+    },
+  ],
+  'AE-5102': [
+    {
+      clause_id: 10,
+      project_id: 'AE-5102',
+      document_id: 'DOC-SHS-001',
+      document_name: 'Substation Transformer Procurement Agreement.pdf',
+      section_title: 'Section 18.3: Heavy Multi-Axle Logistics Clearances',
+      page_number: 29,
+      clause_text: 'Heavy transformer transit exceeding 180 metric tonnes requires certified bridge load capacity permits. The contractor is responsible for municipal route approvals prior to shipment dispatch.',
+      similarity_score: 0.94,
+      connection_rationale: 'Addresses the 32% logistical clearance delay risk. Section 18.3 assigns transport permit liability to the contractor.',
+    },
+  ],
+  'NH-6201': [
+    {
+      clause_id: 11,
+      project_id: 'NH-6201',
+      document_id: 'DOC-GQB-001',
+      document_name: 'Golden Quadrilateral Bypass - Technical Pavement Specs.pdf',
+      section_title: 'Section 8.2: Bituminous Pavement Density & Binder Testing',
+      page_number: 54,
+      clause_text: 'Bituminous macadam paving shall be conducted only when ambient surface temperature exceeds 15°C. Density testing requires 98% Marshall compaction before surface wear course application.',
+      similarity_score: 0.91,
+      connection_rationale: 'Connected to bitumen supply and material compliance risk. Section 8.2 defines mandatory compaction tolerances.',
+    },
+  ],
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
