@@ -387,7 +387,7 @@ function App() {
       <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-lockup">
           <div className="brand-mark">CP</div>
-          <div className="brand-name">contract<span>pulse</span><sup>AI</sup></div>
+          <div className="brand-name">contract<span>pulse</span></div>
         </div>
 
         <button className="workspace-switcher" type="button">
